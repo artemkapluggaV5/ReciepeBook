@@ -1,0 +1,12 @@
+# Versions actually installed for verification on Windows/Python 3.12.14.
+# Snapshot for reproducibility, not a promise that future security updates are unnecessary.
+asgiref==3.13.0
+Django==5.2.18
+django-environ==0.13.0
+psycopg==3.3.6
+psycopg-binary==3.3.6
+sqlparse==0.6.0
+typing_extensions==4.16.0
+tzdata==2026.5
+whitenoise==6.12.0
+# Gunicorn is Linux-only and was not executed in the Windows QA environment.

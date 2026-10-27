@@ -1,0 +1,30 @@
+name: Django PostgreSQL tests
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: cookbook_ci
+          POSTGRES_PASSWORD: isolated-ci-only
+          POSTGRES_DB: cookbook
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U cookbook_ci -d cookbook"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      DEBUG: 'True'
+      DATABASE_URL: postgres://cookbook_ci:isolated-ci-only@127.0.0.1:5432/cookbook
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - run: python manage.py check
+      - run: python manage.py makemigrations --check --dry-run
+      - run: python manage.py migrate --noinput
+      - run: python manage.py collectstatic --noinput
+      - run: python manage.py test tests --settings=config.postgres_settings

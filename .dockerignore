@@ -1,0 +1,11 @@
+.env
+.git
+.venv
+work
+__pycache__
+**/__pycache__
+*.sqlite3
+staticfiles
+private
+public-media
+tests/__pycache__

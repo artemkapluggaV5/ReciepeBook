@@ -1,0 +1,14 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;background:#f6f3eb;color:#292c24;font-family:Arial,sans-serif;line-height:1.7">
+<table role="presentation" style="width:100%;border:0;border-collapse:collapse"><tr><td style="padding:40px 16px">
+<table role="presentation" style="width:100%;max-width:560px;margin:auto;background:#fffdf8;border:1px solid #dcdcd0;border-radius:6px"><tr><td style="padding:36px 28px">
+<p style="font-family:Georgia,serif;font-size:24px;margin:0;color:#45503a">тепло дома.</p>
+<h1 style="font-family:Georgia,serif;font-size:34px;line-height:1.2;font-weight:normal;margin:30px 0 20px">Немного тепла —<br>в вашей почте.</h1>
+<p>Спасибо за покупку сборника «{{ order.product_title }}»!</p>
+<p>Оплата подтверждена: <strong>{{ order.amount }} {{ order.currency }}</strong>.</p>
+<p style="margin:28px 0"><a style="display:inline-block;background:#a6472d;color:#fffdf8;text-decoration:none;padding:14px 22px;border-radius:4px" href="{{ download_url }}">Скачать ваш сборник в PDF</a></p>
+<p>Ссылка действует {{ days }} дней, до {{ limit }} скачиваний. Сохраните PDF на устройство и не публикуйте ссылку.</p>
+<p>Номер заказа: {{ order.pk }}. Если нужна помощь или новая ссылка, напишите <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.</p>
+<p>Это подтверждение заказа, а не кассовый чек. Фискальный чек, когда он требуется, направляет продавец через подключённую кассу.</p>
+<p style="font-size:12px;overflow-wrap:anywhere">Если кнопка не открывается: <a href="{{ download_url }}">{{ download_url }}</a></p>
+</td></tr></table></td></tr></table></body></html>

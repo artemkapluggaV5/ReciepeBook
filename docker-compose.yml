@@ -1,0 +1,61 @@
+name: recipe-shop
+x-app: &app
+  build: .
+  env_file: .env
+  environment:
+    DATABASE_URL: postgres://${DB_USER:?Set DB_USER}:${DB_PASSWORD:?Set DB_PASSWORD}@db:5432/${DB_NAME:?Set DB_NAME}
+  volumes:
+    - private_files:/app/private
+    - public_images:/app/public-media
+    - static_files:/app/staticfiles
+  restart: unless-stopped
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:?Set DB_NAME}
+      POSTGRES_USER: ${DB_USER:?Set DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  init:
+    <<: *app
+    command: ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+  web:
+    <<: *app
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import http.client; c=http.client.HTTPConnection('127.0.0.1',8000,timeout=4); c.request('GET','/health/',headers={'Host':'localhost','X-Forwarded-Proto':'https'}); r=c.getresponse(); exit(0 if r.status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  delivery:
+    <<: *app
+    command: ["python", "manage.py", "deliver_pending", "--loop"]
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import time; from pathlib import Path; p=Path('/tmp/delivery-heartbeat'); exit(0 if p.exists() and time.time()-p.stat().st_mtime<120 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+volumes:
+  postgres_data:
+  private_files:
+  public_images:
+  static_files:
