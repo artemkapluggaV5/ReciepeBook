@@ -35,10 +35,13 @@ cp .env.example .env
 ```bash
 docker compose up --build -d
 docker compose exec web python manage.py seed_demo --with-pdf
+docker compose exec web python manage.py apply_holiday_theme
 docker compose exec web python manage.py createsuperuser
 ```
 
 Откройте http://127.0.0.1:8000, Admin — http://127.0.0.1:8000/admin/ . `init` выполняет миграции и collectstatic до запуска web и delivery. PostgreSQL не публикует порт; web привязан только к 127.0.0.1. Данные БД, закрытые PDF, публичные изображения и static живут в отдельных persistent volumes. `seed_demo` ничего не перезаписывает и откажется работать, если продукт уже существует.
+
+Новогодняя презентация описана в [docs/holiday-redesign.md](docs/holiday-redesign.md). Команда `apply_holiday_theme` обновляет только активный демопродукт, предварительно сохраняет JSON-копию в `work/` и сохраняет цену, путь PDF, загрузки и подтверждённые рецепты. Для реального товара редактируйте содержание через существующий Admin. Локально без Docker: `python manage.py apply_holiday_theme` после `seed_demo`.
 
 Для локального просмотра платёжные пароли не нужны. Без них оформление оплаты закрыто. Для внешнего теста используйте только собственный тестовый магазин Robokassa: задайте ROBOKASSA_MERCHANT_LOGIN, ROBOKASSA_TEST_PASSWORD1/2, ROBOKASSA_TEST_MODE=True и SALES_ENABLED=True. В DEBUG=True этот режим допускает демопродукт и консольную почту. Он отправляет покупателя в настоящий тестовый интерфейс с IsTest=1; локальная кнопка имитации оплаты удалена.
 
