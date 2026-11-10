@@ -75,7 +75,8 @@ class ShopTests(TestCase):
         self.assertContains(response, 'name="csrfmiddlewaretoken"')
         self.assertContains(response, 'aria-expanded="false"')
         self.assertContains(response, '/static/img/food.webp')
-        self.assertContains(response, 'ДЕМОКОЛЛЕКЦИЯ')
+        self.assertNotContains(response, 'ДЕМОКОЛЛЕКЦИЯ')
+        self.assertContains(response, 'Тестовый режим Робокассы')
         self.assertIn("frame-ancestors 'none'", response.headers['Content-Security-Policy'])
 
     def test_legal_health_seo_and_404(self):

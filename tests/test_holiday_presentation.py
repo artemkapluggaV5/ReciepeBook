@@ -35,7 +35,7 @@ class HolidayPresentationTests(TestCase):
                          ('Verified', 'Original', 'recipes/original.webp'))
         self.assertEqual(demo.image_static, 'img/holiday-main.webp')
         response = self.client.get('/')
-        self.assertContains(response, 'Новогодний стол,')
+        self.assertContains(response, 'Приветствую вас,')
         self.assertContains(response, 'holiday.css')
         self.assertContains(response, 'name="csrfmiddlewaretoken"')
         self.assertContains(response, 'action="/checkout/"')
