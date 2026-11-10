@@ -63,7 +63,7 @@ SITE_URL = env('SITE_URL', default='http://127.0.0.1:8000').rstrip('/')
 SITE_NAME = env('SITE_NAME', default='Новогодний сборник Маришкины рецепты')
 if not DEBUG and (urlsplit(SITE_URL).scheme != 'https' or not urlsplit(SITE_URL).hostname):
     raise ImproperlyConfigured('Production SITE_URL must use https.')
-CONTACT_EMAIL = env('CONTACT_EMAIL', default='marina.novikova-1976@mail.ru')
+CONTACT_EMAIL = env('CONTACT_EMAIL', default='marishkinirecepti@mail.ru')
 TELEGRAM_USERNAME = env('TELEGRAM_USERNAME', default='marisha_876').strip().lstrip('@')
 TELEGRAM_SUPPORT_USERNAME = env('TELEGRAM_SUPPORT_USERNAME', default='novikov_valerii_s').strip().lstrip('@')
 for username in (TELEGRAM_USERNAME, TELEGRAM_SUPPORT_USERNAME):
@@ -105,7 +105,7 @@ EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
 EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
 EMAIL_USE_SSL = env.bool('EMAIL_USE_SSL', default=False)
 EMAIL_TIMEOUT = 10
-DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='Маришкины рецепты <marishkinirecepri@mail.ru>')
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='Маришкины рецепты <marishkinirecepti@mail.ru>')
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = not DEBUG

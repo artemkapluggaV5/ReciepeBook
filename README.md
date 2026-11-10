@@ -208,8 +208,8 @@ python manage.py resend_delivery ORDER_UUID --renew
 
 ## Контактная почта и отправитель сборника
 
-Публичная почта поддержки: `marina.novikova-1976@mail.ru` (`CONTACT_EMAIL`). Письма со сборником формируются от `Маришкины рецепты <marishkinirecepri@mail.ru>` (`DEFAULT_FROM_EMAIL`), ответы направляются на контактную почту через Reply-To.
+Публичная почта поддержки: `marishkinirecepti@mail.ru` (`CONTACT_EMAIL`). Письма со сборником формируются от `Маришкины рецепты <marishkinirecepti@mail.ru>` (`DEFAULT_FROM_EMAIL`), ответы направляются на контактную почту через Reply-To.
 
-Для реальной отправки нужно настроить SMTP для ящика `marishkinirecepri@mail.ru`: `EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` и TLS/SSL по требованиям почтового провайдера. Пароль хранится только в переменных окружения. Изменение From не подключает почтовый аккаунт; локально используется console backend.
+Для реальной отправки нужно настроить SMTP для ящика `marishkinirecepti@mail.ru`: `EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` и TLS/SSL по требованиям почтового провайдера. Пароль хранится только в переменных окружения. Изменение From не подключает почтовый аккаунт; локально используется console backend.
 
 По просьбе владельца ссылки на privacy/consent/refunds временно скрыты с главной страницы; сами страницы и записи сохранены. Служебные предупреждения в юридических страницах скрыты, но `is_draft` оферты и серверные ограничения продаж сохранены. Файл оферты не редактировался; его текст в БД не изменён.
