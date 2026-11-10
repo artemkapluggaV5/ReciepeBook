@@ -1,4 +1,5 @@
 import uuid
+import re
 from django.conf import settings
 from django.db import connection
 from django.http import HttpResponse
@@ -28,7 +29,10 @@ def landing(request):
 @require_safe
 def legal(request, slug):
     page = get_object_or_404(LegalPage, slug=slug)
-    return render(request, 'legal.html', {'page': page})
+    paragraphs = [p.strip() for p in re.split(r'\n\s*\n', page.body) if p.strip()]
+    legal_blocks = [{'text': text, 'heading': bool(re.match(r'^\d+\.\s+\D', text))
+                     and len(text) < 100} for text in paragraphs]
+    return render(request, 'legal.html', {'page': page, 'legal_blocks': legal_blocks})
 
 @require_safe
 def health(request):

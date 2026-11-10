@@ -1,1 +1,25 @@
-{% extends 'base.html' %}{% block title %}{{ page.title }} — {{ site_name }}{% endblock %}{% block content %}<article class="wrap legal-page"><p class="eyebrow">Информация для покупателя</p><h1>{{ page.title }}</h1>{% if page.is_draft %}<p class="test-notice">Шаблон для заполнения владельцем. Документ не проверен для конкретного продавца и юрисдикции. Продажи закрыты до подготовки окончательной версии.</p>{% endif %}<div class="legal-copy">{{ page.body|linebreaks }}</div><hr><p>{{ merchant_name }}<br>{{ merchant_details }}</p><p><a href="mailto:{{ contact_email }}">{{ contact_email }}</a></p><p class="small">Обновлено: {{ page.updated_at|date:'d.m.Y' }}</p></article>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}{{ page.title }} — {{ site_name }}{% endblock %}
+{% block content %}
+<article class="wrap legal-page">
+  <p class="eyebrow">Информация для покупателя</p>
+  <h1>{{ page.title }}</h1>
+  {% if page.is_draft %}
+    {% if page.slug == 'offer' %}
+      <p class="test-notice">Редакция готовится к запуску продаж: в тексте ещё не заполнен адрес сайта.</p>
+    {% else %}
+      <p class="test-notice">Шаблон для заполнения владельцем. Документ не проверен для конкретного продавца и юрисдикции. Продажи закрыты до подготовки окончательной версии.</p>
+    {% endif %}
+  {% endif %}
+  <div class="legal-copy">
+    {% for block in legal_blocks %}
+      {% if block.heading %}<h2>{{ block.text }}</h2>{% else %}<p>{{ block.text|linebreaksbr }}</p>{% endif %}
+    {% endfor %}
+  </div>
+  {% if page.slug != 'offer' %}
+    <hr><p>{{ merchant_name }}<br>{{ merchant_details }}</p>
+    <p><a href="mailto:{{ contact_email }}">{{ contact_email }}</a></p>
+  {% endif %}
+  <p class="small">Обновлено: {{ page.updated_at|date:'d.m.Y' }}</p>
+</article>
+{% endblock %}

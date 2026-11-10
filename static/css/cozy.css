@@ -93,3 +93,7 @@ footer{background:var(--cream);border-top:1px solid var(--line)}.footer-top{padd
 @media(max-width:1000px) and (min-width:851px){.site-name>strong{font-size:22px}.site-header #navigation>a+a{margin-left:14px}.site-header .nav-cta{padding:10px 12px;font-size:11px}}
 @media(max-width:850px){.site-header .site-name{margin-right:auto;max-width:calc(100% - 100px)}.site-name>strong{font-size:24px}.site-name>span{font-size:9px;letter-spacing:.08em}.site-header .nav-wrap>.menu-toggle{margin-left:14px}.site-header #navigation{margin-left:0;top:100%}}
 @media(max-width:380px){.site-name>strong{font-size:20px}.site-name>span{font-size:8px}.site-header .nav-wrap{width:calc(100% - 32px)}}
+
+.legal-copy h2{font-size:clamp(24px,3vw,32px);line-height:1.25;letter-spacing:-.02em;margin:36px 0 18px;color:var(--forest)}
+.legal-copy p{overflow-wrap:anywhere;white-space:normal}
+.legal-page h1{font-size:clamp(36px,6vw,64px)}

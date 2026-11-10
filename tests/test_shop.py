@@ -37,7 +37,8 @@ class ShopTests(TestCase):
         (Path(self.temp.name) / 'book.pdf').write_bytes(b'%PDF-1.4\n% unit test fixture\n%%EOF')
         self.product = Product.objects.create(title='Тестовая книга', description='Демонстрация', price='890.00', pdf_name='book.pdf')
         for slug in ['privacy', 'offer', 'consent', 'refunds', 'contacts']:
-            LegalPage.objects.create(slug=slug, title=slug, body='Шаблон', is_draft=True)
+            LegalPage.objects.update_or_create(slug=slug, defaults={
+                'title': slug, 'body': 'Шаблон', 'is_draft': True})
 
     def order(self, **kwargs):
         data = {'request_key': uuid.uuid4(), 'email': 'buyer@example.test', 'product': self.product,
