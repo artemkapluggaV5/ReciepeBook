@@ -22,7 +22,8 @@ def email_service(order):
     message = EmailMultiAlternatives(
         subject=f'Ваш сборник «{order.product_title}» — оплата подтверждена',
         body=render_to_string('email/delivery.txt', context), from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[order.email], headers={'Message-ID': f'<delivery-{order.pk}-{order.token_version}@{settings.SITE_URL.split("://")[-1].split(":")[0]}>'},
+        to=[order.email], reply_to=[settings.CONTACT_EMAIL],
+        headers={'Message-ID': f'<delivery-{order.pk}-{order.token_version}@{settings.SITE_URL.split("://")[-1].split(":")[0]}>'},
     )
     message.attach_alternative(render_to_string('email/delivery.html', context), 'text/html')
     if message.send(fail_silently=False) != 1:

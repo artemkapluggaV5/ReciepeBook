@@ -1,9 +1,15 @@
 from importlib import import_module
+from decimal import Decimal
+from types import SimpleNamespace
+import uuid
 
+from django.core import mail
 from django.test import TestCase
 from django.utils.html import escape
 
 from core.models import LegalPage
+from delivery.services import email_service
+from products.models import Product
 
 
 class SellerOfferTests(TestCase):
@@ -26,3 +32,28 @@ class SellerOfferTests(TestCase):
         response = self.client.get('/legal/offer/')
         self.assertContains(response, '&lt;script&gt;alert(1)&lt;/script&gt;')
         self.assertNotContains(response, '<script>alert(1)</script>')
+
+    def test_contact_email_and_only_requested_footer_links(self):
+        Product.objects.create(title='Книга', description='Описание', price='1990.00')
+        response = self.client.get('/')
+        self.assertContains(response, 'mailto:marina.novikova-1976@mail.ru')
+        for slug in ['privacy', 'consent', 'refunds']:
+            self.assertNotContains(response, f'href="/legal/{slug}/"')
+        self.assertContains(response, 'href="/legal/offer/"')
+        response = self.client.get('/legal/contacts/')
+        self.assertContains(response, 'mailto:marina.novikova-1976@mail.ru')
+        self.assertNotContains(response, 'Шаблон для заполнения владельцем')
+        self.assertNotContains(response, '[Имя или наименование продавца]')
+        response = self.client.get('/legal/offer/')
+        self.assertNotContains(response, 'Редакция готовится к запуску продаж')
+
+    def test_delivery_sender_and_support_reply_address(self):
+        order = SimpleNamespace(pk=uuid.uuid4(), token_version=uuid.uuid4(),
+                                product_title='Книга', amount=Decimal('1990'),
+                                currency='RUB', email='buyer@example.test')
+        email_service(order)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].from_email,
+                         'Маришкины рецепты <marishkinirecepri@mail.ru>')
+        self.assertEqual(mail.outbox[0].reply_to, ['marina.novikova-1976@mail.ru'])
+        self.assertIn('marina.novikova-1976@mail.ru', mail.outbox[0].body)

@@ -2,7 +2,7 @@ from django import forms
 class CheckoutForm(forms.Form):
     email = forms.EmailField(max_length=254, label='Электронная почта', widget=forms.EmailInput(attrs={
         'placeholder': 'you@example.com', 'autocomplete': 'email', 'inputmode': 'email', 'aria-describedby': 'email-help'}))
-    consent = forms.BooleanField(label='Я принимаю оферту и даю согласие на обработку данных')
+    consent = forms.BooleanField(label='Я принимаю условия оферты')
     request_key = forms.UUIDField(widget=forms.HiddenInput)
     website = forms.CharField(required=False, widget=forms.HiddenInput)
     def clean_email(self):
