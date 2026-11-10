@@ -31,7 +31,6 @@
 <main id="main">{% block content %}{% endblock %}</main>
 <footer><div class="wrap footer-top"><div><p>Праздник начинается с домашнего тепла.</p></div><div><span class="eyebrow">Есть вопрос?</span><a class="contact" href="mailto:{{ contact_email }}">{{ contact_email }} {% icon 'arrow' %}</a></div></div>
 <div class="wrap footer-bottom"><div><a href="{% url 'legal' 'offer' %}">Оферта</a><a href="{% url 'legal' 'contacts' %}">Контакты</a></div><small>Электронное издание · PDF</small></div>
-{% if not sales_enabled %}<p class="wrap demo-footer">Демонстрационный магазин. Реквизиты продавца, PDF и юридические документы нужно заполнить перед продажами.</p>{% endif %}
 <div class="wrap seller-details" aria-label="Реквизиты продавца">
   <p class="seller-details-name">{{ seller_display_name }}</p>
   <p class="seller-details-numbers"><span>ИНН: {{ seller_inn }}</span><span>ОГРНИП: {{ seller_ogrn }}</span></p>
