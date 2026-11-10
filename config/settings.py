@@ -64,6 +64,8 @@ SITE_NAME = env('SITE_NAME', default='Новогодний сборник Мар
 if not DEBUG and (urlsplit(SITE_URL).scheme != 'https' or not urlsplit(SITE_URL).hostname):
     raise ImproperlyConfigured('Production SITE_URL must use https.')
 CONTACT_EMAIL = env('CONTACT_EMAIL', default='marishkinirecepti@mail.ru')
+if CONTACT_EMAIL.strip().lower() in {'marina.novikova-1976@mail.ru', 'marishkinirecepri@mail.ru'}:
+    CONTACT_EMAIL = 'marishkinirecepti@mail.ru'
 TELEGRAM_USERNAME = env('TELEGRAM_USERNAME', default='marisha_876').strip().lstrip('@')
 TELEGRAM_SUPPORT_USERNAME = env('TELEGRAM_SUPPORT_USERNAME', default='novikov_valerii_s').strip().lstrip('@')
 for username in (TELEGRAM_USERNAME, TELEGRAM_SUPPORT_USERNAME):
