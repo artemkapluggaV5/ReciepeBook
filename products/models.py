@@ -6,7 +6,7 @@ from django.core.validators import MinValueValidator, FileExtensionValidator
 from django.db import models
 
 class Product(models.Model):
-    title = models.CharField('Название', max_length=180, default='Тепло дома')
+    title = models.CharField('Название', max_length=180, default='Марина Новикова')
     subtitle = models.CharField('Подзаголовок', max_length=220, default='Простые рецепты. Особенные моменты.')
     description = models.TextField('Описание')
     price = models.DecimalField('Цена', max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal('1'))])
@@ -35,6 +35,10 @@ class Product(models.Model):
         return path
     def __str__(self):
         return self.title
+
+    @property
+    def public_reviews(self):
+        return self.reviews.filter(published=True)
 
 class Benefit(models.Model):
     product = models.ForeignKey(Product, related_name='benefits', on_delete=models.CASCADE)
@@ -76,3 +80,20 @@ class Preview(models.Model):
     position = models.PositiveIntegerField(default=0)
     class Meta:
         ordering = ['position', 'pk']
+
+class Review(models.Model):
+    product = models.ForeignKey(Product, related_name='reviews', on_delete=models.CASCADE)
+    author = models.CharField('Имя автора', max_length=120)
+    text = models.TextField('Текст отзыва')
+    image = models.FileField('Фото (необязательно)', upload_to='reviews/', blank=True,
+        validators=[FileExtensionValidator(['jpg', 'jpeg', 'png', 'webp'])])
+    published = models.BooleanField('Разрешение на публикацию получено', default=False)
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['position', 'pk']
+        verbose_name = 'отзыв'
+        verbose_name_plural = 'отзывы'
+
+    def __str__(self):
+        return self.author

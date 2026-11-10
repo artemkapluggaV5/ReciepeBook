@@ -2,11 +2,11 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>{% block title %}{{ product.title|default:'Тепло дома' }} — новогодние рецепты в PDF{% endblock %}</title>
+  <title>{% block title %}{{ site_name }}{% endblock %}</title>
   <meta name="description" content="{{ product.description|default:'Новогодний сборник рецептов: праздничные идеи для тёплых встреч и красивого стола.' }}">
   <meta name="theme-color" content="#173b30">
   <meta property="og:type" content="website"><meta property="og:locale" content="ru_RU">
-  <meta property="og:title" content="{{ product.title|default:'Тепло дома' }} — праздничные рецепты">
+  <meta property="og:title" content="{{ site_name }}">
   <meta property="og:description" content="{{ product.subtitle|default:'Простые рецепты. Особенные моменты.' }}">
   <meta property="og:image" content="{{ site_url }}{% static 'img/holiday-table.webp' %}">
   <meta property="og:url" content="{{ site_url }}{{ request.path }}">
@@ -14,21 +14,22 @@
   <link rel="icon" href="{% static 'img/favicon.svg' %}" type="image/svg+xml">
   <link rel="stylesheet" href="{% static 'css/site.css' %}">
   <link rel="stylesheet" href="{% static 'css/compat.css' %}">
-  <link rel="stylesheet" href="{% static 'css/holiday.css' %}?v=c53ea2d475">
+  <link rel="stylesheet" href="{% static 'css/holiday.css' %}?v=1f38be0842">
   <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}">
+  <link rel="stylesheet" href="{% static 'css/cozy.css' %}?v=marishka-header-1">
   <script src="{% static 'js/site.js' %}" defer></script>
   {% if not sales_enabled %}<meta name="robots" content="noindex,nofollow">{% endif %}
 </head>
 <body data-image-fallback="{% static 'img/food.webp' %}">
 <a class="skip" href="#main">Перейти к содержимому</a>
 <header class="site-header"><div class="wrap nav-wrap">
-  <a class="brand" href="{% url 'landing' %}" aria-label="Тепло дома — главная"><span class="brand-mark" aria-hidden="true">{% icon 'flower' %}</span> тепло дома<span class="brand-dot">.</span></a>
+  <a class="site-name" href="/" aria-label="{{ site_name }} — на главную"><span>Новогодний сборник</span><strong>Маришкины рецепты</strong></a>
   <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="navigation">Меню {% icon 'menu' %}</button>
-  <nav id="navigation" aria-label="Основная навигация"><a href="/#book">О сборнике</a><a href="/#benefits">Для вас</a><a href="/#recipes">Рецепты</a><a href="/#faq">Вопросы</a></nav>
+  <nav id="navigation" aria-label="Основная навигация"><a href="/#welcome">Знакомство</a><a href="/#book">Сборник</a><a href="/#telegram">На связи</a></nav>
   <a class="button button-small nav-cta" href="/#purchase">Получить сборник {% icon 'arrow' %}</a>
 </div></header>
 <main id="main">{% block content %}{% endblock %}</main>
-<footer><div class="wrap footer-top"><div><a class="brand brand-footer" href="/">{% icon 'flower' %} тепло дома.</a><p>Праздник начинается с домашнего тепла.</p></div><div><span class="eyebrow">Есть вопрос?</span><a class="contact" href="mailto:{{ contact_email }}">{{ contact_email }} {% icon 'arrow' %}</a></div></div>
+<footer><div class="wrap footer-top"><div><p>Праздник начинается с домашнего тепла.</p></div><div><span class="eyebrow">Есть вопрос?</span><a class="contact" href="mailto:{{ contact_email }}">{{ contact_email }} {% icon 'arrow' %}</a></div></div>
 <div class="wrap footer-bottom"><div><a href="{% url 'legal' 'privacy' %}">Конфиденциальность</a><a href="{% url 'legal' 'offer' %}">Оферта</a><a href="{% url 'legal' 'consent' %}">Обработка данных</a><a href="{% url 'legal' 'refunds' %}">Доставка и возврат</a><a href="{% url 'legal' 'contacts' %}">Контакты</a></div><small>Электронное издание · PDF</small></div>
 {% if not sales_enabled %}<p class="wrap demo-footer">Демонстрационный магазин. Реквизиты продавца, PDF и юридические документы нужно заполнить перед продажами.</p>{% endif %}
 </footer>

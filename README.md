@@ -195,3 +195,7 @@ python manage.py resend_delivery ORDER_UUID --renew
 Дизайн, фотографии и секции сохранены. Текстовые значки заменены собственными inline SVG с namespace/viewBox/currentColor/явными размерами и aria-hidden. Нет icon fonts, emoji, внешних спрайтов или CSS masks. В compat.css добавлены safe-area, 16 px email input без запрета масштабирования, fallback изображений без aspect-ratio, устранена зависимость от :has и flex gap, нормализован appearance. CSP разрешает платёжный редирект формы только на auth.robokassa.ru. CSS-target — iOS Safari 14+.
 
 Размеры 320/375/390/430/768/desktop проверяются отдельно; Chromium viewport не доказывает Safari-совместимость. Реальные iPhone/iPad и macOS Safari, Firefox и Android требуют внешней приёмки. Отчёт — docs/QA.md.
+
+## Новая витрина
+Структура, отзывы и настройка Telegram: [docs/cozy-redesign.md](docs/cozy-redesign.md). После обновления выполните миграции.
+

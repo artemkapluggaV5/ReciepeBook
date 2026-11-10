@@ -186,3 +186,24 @@ summary:focus-visible,.button:focus-visible {outline-width:3px}
   .presentation h2 {font-size:38px}
   .contact {font-size:20px}
 }
+
+/* Native inline recipes: expanding one card must not stretch its neighbours. */
+.recipe-grid {align-items:start}
+.recipe-card {height:auto;align-self:start}
+.recipe-details {margin-top:0}
+.recipe-details summary {color:var(--forest)}
+.recipe-details summary>span {font-size:inherit;color:inherit}
+.recipe-details .recipe-close-label {display:none}
+.recipe-details[open] .recipe-open-label {display:none}
+.recipe-details[open] .recipe-close-label {display:inline}
+.recipe-details summary>.icon {width:18px;height:18px;min-width:18px;transition:transform .18s ease}
+.recipe-details[open] summary>.icon {transform:rotate(45deg)}
+.recipe-details-content {padding:4px 0 0}
+.recipe-ingredients {list-style:none;padding:0;margin:0 0 22px}
+.recipe-ingredients li {position:relative;padding:8px 0 8px 16px;border-bottom:1px solid var(--line);overflow-wrap:break-word}
+.recipe-ingredients li:before {content:'';position:absolute;left:0;top:19px;width:5px;height:5px;border-radius:50%;background:var(--accent)}
+.recipe-steps {margin:0;padding-left:22px}
+.recipe-steps li {padding-left:4px;margin-bottom:13px;overflow-wrap:break-word}
+.recipe-steps li::marker {color:var(--accent);font-weight:600}
+.recipe-details .recipe-disclaimer {margin-top:22px;padding:12px;background:var(--cream);border-left:2px solid var(--gold)}
+@media(prefers-reduced-motion:reduce) {.recipe-details summary>.icon {transition:none}}

@@ -60,9 +60,15 @@ for public_directory in (MEDIA_ROOT, STATIC_ROOT, BASE_DIR / 'static'):
     if PRIVATE_ROOT == public_directory or public_directory in PRIVATE_ROOT.parents:
         raise ImproperlyConfigured('PRIVATE_ROOT must not be inside public media/static directories.')
 SITE_URL = env('SITE_URL', default='http://127.0.0.1:8000').rstrip('/')
+SITE_NAME = env('SITE_NAME', default='Новогодний сборник Маришкины рецепты')
 if not DEBUG and (urlsplit(SITE_URL).scheme != 'https' or not urlsplit(SITE_URL).hostname):
     raise ImproperlyConfigured('Production SITE_URL must use https.')
 CONTACT_EMAIL = env('CONTACT_EMAIL', default='owner@example.invalid')
+TELEGRAM_USERNAME = env('TELEGRAM_USERNAME', default='marisha_876').strip().lstrip('@')
+TELEGRAM_SUPPORT_USERNAME = env('TELEGRAM_SUPPORT_USERNAME', default='novikov_valerii_s').strip().lstrip('@')
+for username in (TELEGRAM_USERNAME, TELEGRAM_SUPPORT_USERNAME):
+    if username and (not username.isascii() or not username.replace('_', '').isalnum() or not 5 <= len(username) <= 32):
+        raise ImproperlyConfigured('Telegram settings must contain usernames, without URLs.')
 MERCHANT_NAME = env('MERCHANT_NAME', default='[Имя или наименование продавца]')
 MERCHANT_DETAILS = env('MERCHANT_DETAILS', default='[Статус, ИНН, адрес и юрисдикция продавца]')
 MERCHANT_COUNTRY = env('MERCHANT_COUNTRY', default='')
@@ -99,7 +105,7 @@ EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
 EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
 EMAIL_USE_SSL = env.bool('EMAIL_USE_SSL', default=False)
 EMAIL_TIMEOUT = 10
-DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='Тепло дома <owner@example.invalid>')
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='Марина Новикова <owner@example.invalid>')
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = not DEBUG
