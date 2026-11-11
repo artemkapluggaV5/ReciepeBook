@@ -65,7 +65,7 @@ class Robokassa:
         password(2, invoice.test_mode)
         description = re.sub(r'[^\w\s.,-]', '', order.product_title, flags=re.UNICODE)[:100]
         params = {'MerchantLogin': invoice.merchant_login, 'OutSum': amount, 'InvId': str(invoice.pk),
-                  'Description': description, 'Email': order.email, 'Culture': 'ru', 'Encoding': 'utf-8',
+                  'Description': description, 'Culture': 'ru', 'Encoding': 'utf-8',
                   'SignatureValue': digest(parts, invoice.hash_algorithm), **fields}
         if invoice.test_mode:
             params['IsTest'] = '1'

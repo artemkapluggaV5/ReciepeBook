@@ -104,3 +104,10 @@ footer{background:var(--cream);border-top:1px solid var(--line)}.footer-top{padd
 .seller-details .seller-details-numbers{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 24px;margin:0;font-size:12px;line-height:1.7;color:#4f5f4e;font-variant-numeric:tabular-nums}
 .seller-details-numbers span{white-space:nowrap}
 @media(max-width:600px){.seller-details{margin-top:22px;padding-top:20px}.seller-details .seller-details-name{font-size:13px}.seller-details .seller-details-numbers{flex-direction:column;gap:3px}}
+
+.download-page { max-width: 1000px; }
+.download-book { display: grid; grid-template-columns: minmax(180px, 280px) minmax(0, 1fr); gap: 36px; align-items: center; margin: 32px 0; text-align: left; }
+.download-book > img { display: block; width: 100%; height: auto; border-radius: 8px; box-shadow: 0 14px 35px rgba(34, 48, 38, .15); }
+.download-book h2 { margin: 0 0 16px; }
+.download-book .button { margin: 12px 0; }
+@media (max-width: 600px) { .download-book { grid-template-columns: 1fr; gap: 24px; } .download-book > img { max-width: 230px; margin: 0 auto; } .download-book .button { width: 100%; } }

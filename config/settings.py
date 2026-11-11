@@ -102,18 +102,9 @@ for number in (1, 2):
         raise ImproperlyConfigured('Robokassa test and live passwords must be different.')
 DOWNLOAD_DAYS = env.int('DOWNLOAD_DAYS', default=30)
 DOWNLOAD_LIMIT = env.int('DOWNLOAD_LIMIT', default=20)
-EMAIL_BACKEND = env('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
-EMAIL_HOST = env('EMAIL_HOST', default='')
-EMAIL_PORT = env.int('EMAIL_PORT', default=587)
-EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
-EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
-EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
-EMAIL_USE_SSL = env.bool('EMAIL_USE_SSL', default=False)
-EMAIL_TIMEOUT = 10
-UNISENDER_API_KEY = env('UNISENDER_API_KEY', default='')
-UNISENDER_API_URL = env('UNISENDER_API_URL', default='https://go2.unisender.ru/ru/transactional/api/v1')
-DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='Маришкины рецепты <marishkinirecepti@mail.ru>')
-SERVER_EMAIL = DEFAULT_FROM_EMAIL
+# Outbound email is disabled, including stale SMTP/API values in an existing .env.
+EMAIL_BACKEND = 'django.core.mail.backends.dummy.EmailBackend'
+SESSION_COOKIE_AGE = max(30, DOWNLOAD_DAYS) * 86400
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG

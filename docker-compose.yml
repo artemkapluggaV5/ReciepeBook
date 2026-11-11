@@ -43,17 +43,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-  delivery:
-    <<: *app
-    command: ["python", "manage.py", "deliver_pending", "--loop"]
-    depends_on:
-      init:
-        condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "python", "-c", "import time; from pathlib import Path; p=Path('/tmp/delivery-heartbeat'); exit(0 if p.exists() and time.time()-p.stat().st_mtime<120 else 1)"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
+
 volumes:
   postgres_data:
   private_files:

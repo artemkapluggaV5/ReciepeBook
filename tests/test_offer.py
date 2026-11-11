@@ -1,14 +1,9 @@
 from importlib import import_module
-from decimal import Decimal
-from types import SimpleNamespace
-import uuid
 
-from django.core import mail
 from django.test import TestCase
 from django.utils.html import escape
 
 from core.models import LegalPage
-from delivery.services import email_service
 from products.models import Product
 
 
@@ -47,14 +42,3 @@ class SellerOfferTests(TestCase):
         self.assertNotContains(response, '[Имя или наименование продавца]')
         response = self.client.get('/legal/offer/')
         self.assertNotContains(response, 'Редакция готовится к запуску продаж')
-
-    def test_delivery_sender_and_support_reply_address(self):
-        order = SimpleNamespace(pk=uuid.uuid4(), token_version=uuid.uuid4(),
-                                product_title='Книга', amount=Decimal('1990'),
-                                currency='RUB', email='buyer@example.test')
-        email_service(order)
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].from_email,
-                         'Маришкины рецепты <marishkinirecepti@mail.ru>')
-        self.assertEqual(mail.outbox[0].reply_to, ['marishkinirecepti@mail.ru'])
-        self.assertIn('marishkinirecepti@mail.ru', mail.outbox[0].body)

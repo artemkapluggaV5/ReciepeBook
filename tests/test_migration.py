@@ -8,7 +8,7 @@ from django.utils import timezone
 class RobokassaMigrationTests(TransactionTestCase):
     def test_upgrade_preserves_legacy_paid_order_customer_and_token(self):
         executor = MigrationExecutor(connection)
-        executor.migrate([('payments', '0001_initial')])
+        executor.migrate([('payments', '0001_initial'), ('orders', '0002_alter_order_delivery_status')])
         try:
             old = executor.loader.project_state([('payments','0001_initial'),('orders','0002_alter_order_delivery_status')]).apps
             Product = old.get_model('products', 'Product')
@@ -19,8 +19,8 @@ class RobokassaMigrationTests(TransactionTestCase):
                 provider_payment_id='historical-invoice',transaction_id='historical-transaction',status='paid',
                 delivery_status='sent',delivery_attempts=1,paid_at=timezone.now(),token_issued_at=timezone.now(),
                 consent_at=timezone.now(),legal_version='old')
-            snapshot = {field:getattr(order,field) for field in ['email','amount','provider','provider_payment_id',
-                'transaction_id','status','delivery_status','token_version','token_issued_at','paid_at']}
+            snapshot = {field:getattr(order,field) for field in ['amount','provider','provider_payment_id',
+                'transaction_id','status','token_version','token_issued_at','paid_at']}
         finally:
             executor = MigrationExecutor(connection)
             executor.migrate(executor.loader.graph.leaf_nodes())
@@ -28,4 +28,5 @@ class RobokassaMigrationTests(TransactionTestCase):
         from payments.models import RobokassaInvoice
         saved = CurrentOrder.objects.get(pk=order.pk)
         self.assertEqual({field:getattr(saved,field) for field in snapshot},snapshot)
+        self.assertNotIn('email', [f.name for f in CurrentOrder._meta.fields])
         self.assertFalse(RobokassaInvoice.objects.filter(order=saved).exists())

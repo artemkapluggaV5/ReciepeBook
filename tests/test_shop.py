@@ -15,7 +15,7 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from core.models import LegalPage
-from delivery.services import deliver_order, download_token, due_orders
+from delivery.services import prepare_download, renew_download, download_token
 from orders.models import Order, RateBucket
 from orders.services import create_checkout, can_sell
 from payments.models import PaymentEvent, RobokassaInvoice
@@ -41,7 +41,7 @@ class ShopTests(TestCase):
                 'title': slug, 'body': 'Шаблон', 'is_draft': True})
 
     def order(self, **kwargs):
-        data = {'request_key': uuid.uuid4(), 'email': 'buyer@example.test', 'product': self.product,
+        data = {'request_key': uuid.uuid4(), 'product': self.product,
                 'product_title': self.product.title, 'amount': self.product.price, 'currency': 'RUB',
                 'provider': 'robokassa', 'provider_payment_id': 'invoice-' + uuid.uuid4().hex,
                 'consent_at': timezone.now(), 'legal_version': 'test'}
@@ -57,7 +57,7 @@ class ShopTests(TestCase):
 
     def form_data(self, **kwargs):
         self.client.get('/')
-        data = {'email': 'buyer@example.test', 'consent': 'on', 'request_key': self.client.session['checkout_key']}
+        data = {'consent': 'on', 'request_key': self.client.session['checkout_key']}
         data.update(kwargs)
         return data
 
@@ -87,10 +87,11 @@ class ShopTests(TestCase):
             self.assertEqual(self.client.get(path).status_code, 200)
         self.assertEqual(self.client.get('/unknown/').status_code, 404)
 
-    def test_invalid_email(self):
-        response = self.client.post('/checkout/', self.form_data(email='invalid'))
-        self.assertEqual(response.status_code, 400)
-        self.assertFalse(Order.objects.exists())
+    def test_checkout_does_not_collect_email(self):
+        response, _ = self.mock_checkout(self.form_data())
+        self.assertEqual(response.status_code, 302)
+        self.assertNotIn('email', [f.name for f in Order._meta.fields])
+        self.assertNotContains(self.client.get('/'), 'name="email"')
 
     def test_missing_consent(self):
         self.assertEqual(self.client.post('/checkout/', self.form_data(consent='')).status_code, 400)
@@ -114,7 +115,7 @@ class ShopTests(TestCase):
         provider.name = 'robokassa'
         provider.create_payment.return_value = Checkout('csrf-invoice', 'https://auth.robokassa.ru/Merchant/Index.aspx?test=1')
         with patch('orders.services.can_sell', return_value=True), patch('orders.services.get_provider', return_value=provider):
-            response = client.post('/checkout/', {'email':'buyer@example.test','consent':'on',
+            response = client.post('/checkout/', {'consent':'on',
                 'request_key':client.session['checkout_key'], 'csrfmiddlewaretoken':client.cookies['csrftoken'].value},
                 HTTP_ORIGIN='http://testserver')
         self.assertEqual(response.status_code, 302)
@@ -160,11 +161,11 @@ class ShopTests(TestCase):
         order.refresh_from_db()
         self.assertEqual(order.status, 'pending')
 
-    def test_order_status_does_not_disclose_email_or_token(self):
+    def test_order_status_requires_owner_session(self):
         order = self.order()
         response = self.client.get(reverse('order-status', args=[order.pk]))
-        self.assertNotContains(response, order.email)
-        self.assertNotContains(response, '/download/')
+        self.assertEqual(response.status_code, 403)
+        self.assertNotContains(response, '/download/', status_code=403)
         self.assertIn('no-store', response.headers['Cache-Control'])
 
     def test_unpaid_download_denied(self):
@@ -201,43 +202,19 @@ class ShopTests(TestCase):
         order = self.order(status='paid', token_issued_at=timezone.now(), download_count=20)
         self.assertEqual(self.client.get(reverse('download', args=[download_token(order)])).status_code, 410)
 
-    def test_missing_pdf_not_reported_as_delivery_success(self):
+    def test_missing_pdf_not_reported_as_download_ready(self):
         order = self.order(status='paid')
         (Path(self.temp.name) / 'book.pdf').unlink()
-        self.assertFalse(deliver_order(order.pk))
+        token, issue = prepare_download(order.pk)
+        self.assertIsNone(token)
+        self.assertEqual(issue, 'pdf_missing')
         order.refresh_from_db()
-        self.assertEqual(order.delivery_status, 'failed')
-        self.assertEqual(order.delivery_error, 'pdf_missing')
-        self.assertEqual(len(mail.outbox), 0)
-
-    def test_email_failure_then_retry(self):
-        order = self.order(status='paid')
-        with patch('delivery.services.email_service', side_effect=TimeoutError):
-            self.assertFalse(deliver_order(order.pk))
-        order.refresh_from_db()
-        self.assertEqual(order.status, 'paid')
-        self.assertEqual(order.delivery_status, 'failed')
-        self.assertEqual(order.delivery_attempts, 1)
-        self.assertTrue(deliver_order(order.pk))
-        order.refresh_from_db()
-        self.assertEqual(order.delivery_status, 'sent')
-        self.assertEqual(order.delivery_attempts, 2)
-        self.assertEqual(len(mail.outbox), 1)
-
-    def test_backoff_and_retry_cap(self):
-        order = self.order(status='paid', delivery_attempts=1, last_attempt_at=timezone.now())
-        self.assertNotIn(order.pk, list(due_orders()))
-        Order.objects.filter(pk=order.pk).update(last_attempt_at=timezone.now()-timedelta(hours=2))
-        self.assertIn(order.pk, list(due_orders()))
-        Order.objects.filter(pk=order.pk).update(delivery_attempts=8)
-        self.assertNotIn(order.pk, list(due_orders()))
+        self.assertIsNone(order.token_issued_at)
 
     def test_renew_revokes_old_link(self):
         order = self.order(status='paid')
-        deliver_order(order.pk)
-        order.refresh_from_db()
-        old = download_token(order)
-        self.assertTrue(deliver_order(order.pk, force=True, renew=True))
+        old, _ = prepare_download(order.pk)
+        self.assertTrue(renew_download(order.pk))
         self.assertEqual(self.client.get(reverse('download', args=[old])).status_code, 404)
 
     def test_admin_requires_staff(self):
@@ -311,7 +288,7 @@ class ShopTests(TestCase):
         self.assertEqual(params['IsTest'], '1')
         self.assertEqual(params['OutSum'], '890.00')
         self.assertEqual(params['InvId'], str(invoice.pk))
-        self.assertEqual(params['Email'], order.email)
+        self.assertNotIn('Email', params)
         base = f'unit-test-shop:890.00:{invoice.pk}:unit-test-only-pass1:Shp_currency=RUB:Shp_mode=test:Shp_order={order.pk}'
         self.assertEqual(params['SignatureValue'], hashlib.sha256(base.encode()).hexdigest())
         self.assertNotIn('unit-test-only-pass1', response.url)
@@ -341,19 +318,15 @@ class ShopTests(TestCase):
         response = self.callback(self.signed(order))
         self.assertEqual(response.content, f'OK{order.robokassa_invoice.pk}'.encode())
 
-    def test_verified_result_marks_paid_and_queues_one_email(self):
+    def test_verified_result_marks_paid_and_enables_download(self):
         order = self.order()
         self.assertEqual(self.callback(self.signed(order)).content, f'OK{order.robokassa_invoice.pk}'.encode())
         order.refresh_from_db()
         self.assertEqual(order.status, 'paid')
         self.assertIsNotNone(order.paid_at)
-        self.assertEqual(order.delivery_status, 'pending')
-        with patch('delivery.management.commands.deliver_pending.close_old_connections'):
-            call_command('deliver_pending')
-        order.refresh_from_db()
-        self.assertEqual(order.delivery_status, 'sent')
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertIn('/download/', mail.outbox[0].body)
+        token, issue = prepare_download(order.pk)
+        self.assertTrue(token)
+        self.assertEqual(issue, '')
 
     def test_result_invalid_signature_and_password1_are_rejected(self):
         order = self.order()
@@ -388,11 +361,16 @@ class ShopTests(TestCase):
         order = self.order()
         event = self.signed(order)
         self.callback(event)
-        self.assertTrue(deliver_order(order.pk))
+        token = prepare_download(order.pk)[0]
+        order.refresh_from_db()
+        issued_at = order.token_issued_at
+        self.assertTrue(token)
         self.assertEqual(self.callback(event).content, f'OK{order.robokassa_invoice.pk}'.encode())
-        self.assertFalse(deliver_order(order.pk))
+        self.assertTrue(prepare_download(order.pk)[0])
+        order.refresh_from_db()
+        self.assertEqual(order.token_issued_at, issued_at)
         self.assertEqual(PaymentEvent.objects.filter(kind='robokassa_paid').count(), 1)
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_case_insensitive_signature_and_six_decimal_sum(self):
         order = self.order()
@@ -421,8 +399,8 @@ class ShopTests(TestCase):
     def test_browser_success_is_read_only_even_with_valid_password1_signature(self):
         order = self.order()
         event = self.signed(order, password_number=1)
-        self.assertEqual(self.client.get(reverse('robokassa-success'), event).status_code, 200)
-        self.assertEqual(self.client.post(reverse('robokassa-success'), urlencode(event), content_type='application/x-www-form-urlencoded').status_code, 200)
+        self.assertEqual(self.client.get(reverse('robokassa-success'), event).status_code, 302)
+        self.assertEqual(self.client.post(reverse('robokassa-success'), urlencode(event), content_type='application/x-www-form-urlencoded').status_code, 302)
         order.refresh_from_db()
         self.assertEqual(order.status, 'pending')
         self.assertFalse(PaymentEvent.objects.exists())
@@ -436,23 +414,13 @@ class ShopTests(TestCase):
 
     def test_failure_redirect_and_late_failure_cannot_change_payment(self):
         order = self.order()
-        self.assertEqual(self.client.get(reverse('robokassa-fail'), {'InvId':order.robokassa_invoice.pk}).status_code, 200)
+        self.assertRedirects(self.client.get(reverse('robokassa-fail'), {'InvId':order.robokassa_invoice.pk}), '/#purchase', fetch_redirect_response=False)
         order.refresh_from_db()
         self.assertEqual(order.status, 'pending')
         self.callback(self.signed(order))
         self.client.post(reverse('robokassa-fail'), {'InvId':order.robokassa_invoice.pk})
         order.refresh_from_db()
         self.assertEqual(order.status, 'paid')
-
-    def test_result_then_email_failure_and_retry(self):
-        order = self.order()
-        self.callback(self.signed(order))
-        with patch('delivery.services.email_service', side_effect=TimeoutError):
-            self.assertFalse(deliver_order(order.pk))
-        order.refresh_from_db()
-        self.assertEqual(order.status, 'paid')
-        self.assertEqual(order.delivery_status, 'failed')
-        self.assertTrue(deliver_order(order.pk))
 
     def test_missing_result_signature_is_not_a_csrf_shortcut(self):
         client = Client(enforce_csrf_checks=True)
@@ -463,19 +431,19 @@ class ShopTests(TestCase):
 
     def test_legacy_paid_order_stays_downloadable(self):
         order = self.order(provider='cloudpayments', status='paid', token_issued_at=timezone.now())
-        original = (order.email, Decimal(order.amount), order.status, order.token_version)
+        original = (Decimal(order.amount), order.status, order.token_version)
         response = self.client.get(reverse('download', args=[download_token(order)]))
         self.assertEqual(response.status_code, 200)
         with patch('django.core.signals.request_finished.send'):
             response.close()
         order.refresh_from_db()
-        self.assertEqual((order.email, order.amount, order.status, order.token_version), original)
+        self.assertEqual((order.amount, order.status, order.token_version), original)
         self.assertEqual(self.client.post('/webhooks/cloudpayments/pay/', {}).status_code, 404)
 
     def test_refunded_order_is_not_reactivated(self):
         order = self.order(status='refunded', refunded_amount=Decimal('890'))
         self.assertEqual(self.callback(self.signed(order)).status_code, 400)
-        self.assertFalse(deliver_order(order.pk))
+        self.assertFalse(prepare_download(order.pk)[0])
 
     @override_settings(ROBOKASSA_TEST_PASSWORD1='')
     def test_missing_credentials_block_sales(self):
@@ -485,47 +453,13 @@ class ShopTests(TestCase):
 
     @override_settings(DEBUG=False, ROBOKASSA_TEST_MODE=False, LEGAL_READY=True, FISCALIZATION_READY=True,
                        MERCHANT_COUNTRY='RU', MERCHANT_NAME='Test merchant', MERCHANT_DETAILS='Test details',
-                       CONTACT_EMAIL='support@example.test', EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
-                       EMAIL_HOST='smtp.example.test', EMAIL_HOST_USER='test-only')
+                       CONTACT_EMAIL='support@example.test')
     def test_live_sales_require_real_product_and_legal_pages(self):
         self.assertFalse(can_sell(self.product))
         self.product.is_demo = False
         self.product.save()
         LegalPage.objects.update(is_draft=False)
         self.assertTrue(can_sell(self.product))
-        with override_settings(EMAIL_BACKEND='delivery.backends.UnisenderEmailBackend',
-                               UNISENDER_API_KEY='test-only-key', SITE_URL='https://example.test',
-                               DEFAULT_FROM_EMAIL='book@example.test'):
-            self.assertTrue(can_sell(self.product))
-            with override_settings(UNISENDER_API_KEY=''):
-                self.assertFalse(can_sell(self.product))
-
-    @override_settings(EMAIL_BACKEND='delivery.backends.UnisenderEmailBackend', UNISENDER_API_KEY='test-only-key',
-                       UNISENDER_API_URL='https://go2.unisender.ru/ru/transactional/api/v1')
-    @patch('delivery.backends.api_open')
-    def test_unisender_delivery_failure_retry_and_duplicate_prevention(self, api):
-        import json
-        from unittest.mock import MagicMock
-        order = self.order(status='paid')
-        api.side_effect = TimeoutError()
-        self.assertFalse(deliver_order(order.pk))
-        order.refresh_from_db()
-        self.assertEqual(order.delivery_status, 'failed')
-        self.assertEqual(order.delivery_attempts, 1)
-        response = MagicMock()
-        response.__enter__.return_value = response
-        response.status = 200
-        response.read.return_value = json.dumps({'status': 'success', 'job_id': 'unit-test-job',
-                                               'emails': [order.email]}).encode()
-        api.side_effect = None
-        api.return_value = response
-        self.assertTrue(deliver_order(order.pk))
-        self.assertFalse(deliver_order(order.pk))
-        order.refresh_from_db()
-        self.assertEqual(order.delivery_status, 'sent')
-        self.assertEqual(order.delivery_attempts, 2)
-        self.assertEqual(api.call_count, 2)
-
     def test_inline_icons_have_accessible_geometry_and_no_font_dependency(self):
         response = self.client.get('/')
         self.assertContains(response, 'viewBox="0 0 24 24"')
@@ -536,3 +470,99 @@ class ShopTests(TestCase):
         for glyph in ['✳','↗','◷','☰','⌑','✉']:
             self.assertNotContains(response, glyph)
 
+
+    def own_order(self, order):
+        session = self.client.session
+        session['orders'] = [str(order.pk)]
+        session.save()
+
+    def test_paid_owner_sees_cover_and_download(self):
+        order = self.order(status='paid')
+        self.own_order(order)
+        response = self.client.get(reverse('order-status', args=[order.pk]))
+        self.assertContains(response, 'Скачать сборник')
+        self.assertContains(response, '/download/')
+        self.assertNotContains(response, 'Статус письма')
+        self.assertIn('no-store', response.headers['Cache-Control'])
+        self.assertEqual(response.headers['X-Robots-Tag'], 'noindex, nofollow')
+
+    def test_unpaid_owner_never_gets_download_even_with_status_query(self):
+        order = self.order()
+        self.own_order(order)
+        response = self.client.get(reverse('order-status', args=[order.pk]) + '?status=paid')
+        self.assertContains(response, 'Проверяем оплату')
+        self.assertNotContains(response, '/download/')
+        self.assertContains(response, 'data-payment-pending')
+        state = self.client.get(reverse('order-status', args=[order.pk]), HTTP_ACCEPT='application/json').json()
+        self.assertEqual(state, {'status': 'pending', 'ready': False, 'issue': ''})
+
+    def test_delayed_webhook_unlocks_existing_page(self):
+        order = self.order()
+        self.own_order(order)
+        url = reverse('order-status', args=[order.pk])
+        self.assertFalse(self.client.get(url, HTTP_ACCEPT='application/json').json()['ready'])
+        self.callback(self.signed(order))
+        self.assertTrue(self.client.get(url, HTTP_ACCEPT='application/json').json()['ready'])
+        self.assertContains(self.client.get(url), 'Скачать сборник')
+
+    def test_success_return_restores_only_signed_order_session_for_cross_site_post(self):
+        order = self.order(status='paid')
+        event = self.signed(order, password_number=1)
+        client = Client(enforce_csrf_checks=True)
+        response = client.post(reverse('robokassa-success'), urlencode(event), content_type='application/x-www-form-urlencoded')
+        self.assertRedirects(response, reverse('order-status', args=[order.pk]))
+        self.assertEqual(client.session['orders'], [str(order.pk)])
+        self.assertContains(client.get(response.url), 'Скачать сборник')
+        other = self.order(status='paid')
+        self.assertEqual(client.get(reverse('order-status', args=[other.pk]), HTTP_ACCEPT='application/json').status_code, 403)
+
+    def test_success_return_before_result_waits_and_never_confirms_payment(self):
+        order = self.order()
+        response = self.client.get(reverse('robokassa-success'), self.signed(order, password_number=1), follow=True)
+        self.assertContains(response, 'Проверяем оплату')
+        self.assertNotContains(response, '/download/')
+        order.refresh_from_db()
+        self.assertEqual(order.status, 'pending')
+        self.assertFalse(PaymentEvent.objects.exists())
+
+    def test_unsigned_success_cannot_grant_access_to_paid_order(self):
+        order = self.order(status='paid')
+        self.assertEqual(self.client.get(reverse('robokassa-success'), {'InvId': order.robokassa_invoice.pk, 'status': 'paid'}).status_code, 400)
+        self.assertEqual(self.client.get(reverse('order-status', args=[order.pk])).status_code, 403)
+
+    def test_failed_payment_returns_to_purchase_with_notice(self):
+        response = self.client.get(reverse('robokassa-fail'), follow=True)
+        self.assertContains(response, 'Оплата не завершена')
+        response, _ = self.mock_checkout(self.form_data())
+        self.assertEqual(response.status_code, 302)
+
+    def test_late_fail_for_owned_paid_order_returns_to_download(self):
+        order = self.order(status='paid')
+        self.own_order(order)
+        self.assertRedirects(self.client.get(reverse('robokassa-fail'), {'InvId': order.robokassa_invoice.pk}), reverse('order-status', args=[order.pk]))
+
+    def test_missing_file_never_offers_broken_download_button(self):
+        order = self.order(status='paid')
+        self.own_order(order)
+        (Path(self.temp.name) / 'book.pdf').unlink()
+        response = self.client.get(reverse('order-status', args=[order.pk]))
+        self.assertContains(response, 'Файл временно недоступен')
+        self.assertNotContains(response, '/download/')
+        self.assertFalse(self.client.get(reverse('order-status', args=[order.pk]), HTTP_ACCEPT='application/json').json()['ready'])
+
+    def test_expired_access_is_not_renewed_by_page_refresh(self):
+        issued = timezone.now() - timedelta(days=31)
+        order = self.order(status='paid', token_issued_at=issued)
+        self.own_order(order)
+        response = self.client.get(reverse('order-status', args=[order.pk]))
+        self.assertNotContains(response, '/download/')
+        order.refresh_from_db()
+        self.assertEqual(order.token_issued_at, issued)
+
+    def test_outbound_mail_is_disabled_by_default(self):
+        with patch('django.core.mail.send_mail') as send:
+            order = self.order()
+            self.callback(self.signed(order))
+            self.own_order(order)
+            self.client.get(reverse('order-status', args=[order.pk]))
+            send.assert_not_called()

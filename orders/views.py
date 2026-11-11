@@ -1,16 +1,25 @@
 import logging
-from django.http import Http404, HttpResponse
+from django.conf import settings
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST, require_http_methods
 from products.models import Product
 from payments.providers import PaymentError
+from delivery.services import prepare_download
 from .forms import CheckoutForm
 from .models import Order
 from .rate_limit import limited
 from .services import create_checkout
 
 logger = logging.getLogger(__name__)
+
+
+def remember_order(request, order_id):
+    owned = request.session.get('orders', [])
+    key = str(order_id)
+    request.session['orders'] = ([item for item in owned if item != key] + [key])[-20:]
+
 
 @require_POST
 def checkout(request):
@@ -23,24 +32,26 @@ def checkout(request):
     if not product:
         return HttpResponse('Сборник временно недоступен.', status=503)
     if not form.is_valid():
-        return render(request, 'landing.html', {'product': product, 'form': form, 'purchase_error': 'Проверьте email и согласие с условиями.'}, status=400)
+        return render(request, 'landing.html', {'product': product, 'form': form, 'purchase_error': 'Примите условия оферты и повторите попытку.'}, status=400)
     if str(form.cleaned_data['request_key']) != request.session.get('checkout_key'):
         return render(request, 'message.html', {'title': 'Обновите страницу', 'text': 'Откройте главную страницу и отправьте форму снова.'}, status=400)
     try:
-        order, url = create_checkout(product, form.cleaned_data['email'], form.cleaned_data['request_key'])
+        order, url = create_checkout(product, form.cleaned_data['request_key'])
     except PaymentError as exc:
-        # Only a controlled error code, never provider payload, credentials or customer email.
         logger.warning('checkout_error code=%s', str(exc))
         return render(request, 'landing.html', {'product': product, 'form': form, 'purchase_error': 'Оплата сейчас недоступна. Деньги на сайте не списывались. Попробуйте позже или напишите в поддержку.'}, status=503)
-    owned = request.session.get('orders', [])
-    request.session['orders'] = (owned + [str(order.pk)])[-10:]
+    remember_order(request, order.pk)
     return redirect(url or reverse('order-status', args=[order.pk]))
+
 
 @require_http_methods(['GET', 'HEAD'])
 def status(request, order_id):
-    # No email or download capability on the return URL. Only the creating session sees status.
     if str(order_id) not in request.session.get('orders', []):
-        return render(request, 'message.html', {'title': 'Проверяем оплату', 'text': 'После подтверждения оплаты письмо придёт на указанный email. При затруднениях обратитесь в поддержку.'})
-    order = get_object_or_404(Order, pk=order_id)
-    return render(request, 'status.html', {'order': order})
-
+        return render(request, 'message.html', {'title': 'Доступ к заказу ограничен',
+            'text': 'Откройте страницу в том браузере, где оформляли покупку. Если доступ потерян, сообщите поддержке номер заказа и данные платежа.'}, status=403)
+    order = get_object_or_404(Order.objects.select_related('product', 'robokassa_invoice'), pk=order_id)
+    token, issue = prepare_download(order.pk) if order.status == Order.Status.PAID else (None, '')
+    if request.headers.get('Accept') == 'application/json':
+        return JsonResponse({'status': order.status, 'ready': bool(token), 'issue': issue})
+    return render(request, 'status.html', {'order': order, 'download_token': token,
+        'download_issue': issue, 'download_days': settings.DOWNLOAD_DAYS, 'download_limit': settings.DOWNLOAD_LIMIT})

@@ -1,7 +1,9 @@
 import logging
 from django.db import IntegrityError
 from django.http import HttpResponse, QueryDict
-from django.shortcuts import render
+from django.shortcuts import render, redirect
+from orders.views import remember_order
+from orders.models import Order
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from .services import process_result, validate_event, RejectedEvent, InvalidSignature
@@ -34,8 +36,8 @@ def result(request):
         return HttpResponse('Invalid payment', status=400, content_type='text/plain')
     return HttpResponse(f'OK{number}', content_type='text/plain')
 
-# Read-only redirects: POST needs no CSRF because it never changes payment state.
-# A cross-site POST on iOS need not carry the SameSite=Lax session cookie.
+# Robokassa may return via cross-site POST without a SameSite=Lax cookie.
+# A verified Password1 signature grants access to THIS order only, never confirms payment.
 @csrf_exempt
 @require_http_methods(['GET', 'POST'])
 def success(request):
@@ -43,12 +45,24 @@ def success(request):
         invoice = validate_event(parameters(request), success_redirect=True)
     except (RejectedEvent, UnicodeDecodeError):
         return render(request, 'message.html', {'title': 'Не удалось проверить возврат',
-            'text': 'Откройте письмо с подтверждением или обратитесь в поддержку.'}, status=400)
-    return render(request, 'status.html', {'order': invoice.order, 'payment_return': True})
+            'text': 'Вернитесь на страницу заказа в браузере покупки или обратитесь в поддержку.'}, status=400)
+    remember_order(request, invoice.order_id)
+    return redirect('order-status', order_id=invoice.order_id)
+
 
 @csrf_exempt
 @require_http_methods(['GET', 'POST'])
 def fail(request):
-    # FailURL is not an authenticated failure callback. Never downgrade a paid order.
-    return render(request, 'message.html', {'title': 'Оплата не завершена',
-        'text': 'Вы вернулись со страницы оплаты. Если деньги списались, дождитесь подтверждения и письма. Иначе можно повторить оформление на главной.'})
+    # FailURL is unsigned: never mark failure or grant access from InvId alone.
+    event = request.POST if request.method == 'POST' else request.GET
+    owned = request.session.get('orders', [])
+    paid = Order.objects.filter(pk__in=owned, status=Order.Status.PAID)
+    if event.get('InvId'):
+        paid = paid.filter(robokassa_invoice__id__in=[event['InvId']] if event['InvId'].isdigit() and len(event['InvId']) <= 18 else [])
+    else:
+        paid = paid.order_by('-created_at')
+    order = paid.first()
+    if order:
+        return redirect('order-status', order_id=order.pk)
+    request.session['payment_failed'] = True
+    return redirect('/#purchase')

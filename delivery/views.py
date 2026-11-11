@@ -29,7 +29,7 @@ def download(request, token):
             if not secrets.compare_digest(str(order.token_version), str(payload['version'])):
                 raise ValueError
             if order.token_issued_at < timezone.now() - timedelta(days=settings.DOWNLOAD_DAYS) or order.download_count >= settings.DOWNLOAD_LIMIT:
-                return render(request, 'message.html', {'title': 'Обновим вашу ссылку', 'text': 'Срок или лимит ссылки закончился. Напишите в поддержку с почты покупки — мы поможем восстановить доступ.'}, status=410)
+                return render(request, 'message.html', {'title': 'Обновим вашу ссылку', 'text': 'Срок или лимит ссылки закончился. Сообщите поддержке номер заказа и данные платежа — мы поможем восстановить доступ.'}, status=410)
             try:
                 stream = order.product.private_path().open('rb')
             except (ValueError, OSError):
@@ -43,4 +43,4 @@ def download(request, token):
             response['X-Robots-Tag'] = 'noindex, nofollow'
             return response
     except (signing.BadSignature, Order.DoesNotExist, ValidationError, ValueError, KeyError, TypeError):
-        return render(request, 'message.html', {'title': 'Ссылка недоступна', 'text': 'Проверьте ссылку из письма или обратитесь в поддержку.'}, status=404)
+        return render(request, 'message.html', {'title': 'Ссылка недоступна', 'text': 'Откройте страницу своего заказа или обратитесь в поддержку.'}, status=404)

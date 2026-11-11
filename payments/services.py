@@ -69,5 +69,5 @@ def process_result(event):
         PaymentEvent.objects.create(order=order, kind='robokassa_paid',
                                     transaction_id=str(invoice.pk), amount=order.amount)
         order.save(update_fields=['transaction_id', 'status', 'paid_at', 'updated_at'])
-    # A paid order is a durable DB delivery task. No SMTP inside ResultURL.
+    # Only this authenticated callback confirms payment. Browser returns never do.
     return invoice.pk

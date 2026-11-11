@@ -39,3 +39,25 @@ window.addEventListener('pageshow', event => {
 });
 const error = document.querySelector('#purchase-error');
 if (error) { error.focus(); error.scrollIntoView({block: 'center'}); }
+
+// Poll only in the owning browser; a return URL never proves payment.
+const pendingPayment = document.querySelector('[data-payment-pending]');
+if (pendingPayment) {
+  let attempts = 0;
+  const poll = async () => {
+    attempts += 1;
+    try {
+      const response = await fetch(window.location.pathname, {
+        headers: {'Accept': 'application/json'}, credentials: 'same-origin', cache: 'no-store'
+      });
+      if (response.ok) {
+        const state = await response.json();
+        if (state.status !== 'pending') { window.location.reload(); return; }
+      }
+    } catch (_) { /* Keep the manual refresh button available. */ }
+    if (attempts < 100) window.setTimeout(poll, 3000);
+    else document.querySelector('#payment-wait').textContent =
+      'Подтверждение задерживается. Обновите статус вручную или обратитесь в поддержку с номером заказа. Если деньги списались, повторно платить не нужно.';
+  };
+  window.setTimeout(poll, 2000);
+}

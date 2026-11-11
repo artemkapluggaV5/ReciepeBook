@@ -24,7 +24,7 @@ def landing(request):
     if not old_key or complete or legacy:
         request.session['checkout_key'] = str(uuid.uuid4())
     form = CheckoutForm(initial={'request_key': request.session['checkout_key']})
-    return render(request, 'landing.html', {'product': product, 'form': form})
+    return render(request, 'landing.html', {'product': product, 'form': form, 'payment_failed': request.session.pop('payment_failed', False)})
 
 @require_safe
 def legal(request, slug):
