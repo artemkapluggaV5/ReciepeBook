@@ -1,0 +1,13 @@
+{% extends 'base.html' %}{% load icons %}
+{% block title %}Оплата не завершена — {{ site_name }}{% endblock %}
+{% block content %}
+<section class="wrap message-page">
+  <p class="eyebrow">Новогодний сборник</p>
+  <h1>Оплата не завершена.</h1>
+  <p>Если деньги не списались, вернитесь к покупке и попробуйте ещё раз.</p>
+  <p>Если деньги списались — повторно платить не нужно. Напишите в поддержку: мы проверим платёж и поможем получить сборник.</p>
+  <a class="button" href="{% url 'landing' %}#purchase">Попробовать ещё раз {% icon 'arrow' %}</a>
+  <p>Поддержка: <a href="mailto:{{ contact_email }}">{{ contact_email }}</a></p>
+  <p><a href="{% url 'landing' %}">На главную</a></p>
+</section>
+{% endblock %}

@@ -414,7 +414,9 @@ class ShopTests(TestCase):
 
     def test_failure_redirect_and_late_failure_cannot_change_payment(self):
         order = self.order()
-        self.assertRedirects(self.client.get(reverse('robokassa-fail'), {'InvId':order.robokassa_invoice.pk}), '/#purchase', fetch_redirect_response=False)
+        response = self.client.get(reverse('robokassa-fail'), {'InvId':order.robokassa_invoice.pk})
+        self.assertContains(response, 'Попробовать ещё раз')
+        self.assertTemplateUsed(response, 'payment_failed.html')
         order.refresh_from_db()
         self.assertEqual(order.status, 'pending')
         self.callback(self.signed(order))
@@ -530,9 +532,14 @@ class ShopTests(TestCase):
         self.assertEqual(self.client.get(reverse('robokassa-success'), {'InvId': order.robokassa_invoice.pk, 'status': 'paid'}).status_code, 400)
         self.assertEqual(self.client.get(reverse('order-status', args=[order.pk])).status_code, 403)
 
-    def test_failed_payment_returns_to_purchase_with_notice(self):
+    def test_failed_payment_shows_separate_page_with_retry_link(self):
         response = self.client.get(reverse('robokassa-fail'), follow=True)
         self.assertContains(response, 'Оплата не завершена')
+        self.assertContains(response, 'href="/#purchase"')
+        self.assertContains(response, 'повторно платить не нужно')
+        self.assertNotContains(response, '/download/')
+        self.assertIn('no-store', response.headers['Cache-Control'])
+        self.client.get('/')
         response, _ = self.mock_checkout(self.form_data())
         self.assertEqual(response.status_code, 302)
 

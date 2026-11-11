@@ -64,5 +64,4 @@ def fail(request):
     order = paid.first()
     if order:
         return redirect('order-status', order_id=order.pk)
-    request.session['payment_failed'] = True
-    return redirect('/#purchase')
+    return render(request, 'payment_failed.html')
