@@ -10,7 +10,7 @@ class SecurityHeadersMiddleware:
         response = self.get_response(request)
         response['Content-Security-Policy'] = (
             "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; "
-            "font-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+            "font-src 'self'; connect-src 'self'; form-action 'self' https://yoomoney.ru https://yookassa.ru; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
         )
         response['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
         if request.path.startswith(('/order/', '/download/', '/checkout/', '/payments/', '/admin/')):

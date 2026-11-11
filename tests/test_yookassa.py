@@ -257,3 +257,21 @@ class YooKassaTests(TestCase):
                 opener.return_value.open.side_effect=error
                 with self.assertRaisesMessage(PaymentError,code):
                     YooKassa().request('GET','payments/test')
+
+    def test_checkout_redirect_is_permitted_by_browser_form_policy(self):
+        self.client.get('/')
+        with patch.object(YooKassa,'create_payment') as api:
+            def payment(order, invoice):
+                data=self.payment('pending')
+                data['metadata']={'order_id':str(order.pk)}
+                data['id']=str(uuid.uuid4())
+                return data
+            api.side_effect=payment
+            response=self.client.post('/checkout/', {'consent':'on','request_key':self.client.session['checkout_key']})
+        self.assertEqual(response.status_code,302)
+        self.assertTrue(response.url.startswith('https://yoomoney.ru/'))
+        for page in [self.client.get('/'),response]:
+            directives = dict(part.strip().split(' ',1) for part in page.headers['Content-Security-Policy'].split(';') if ' ' in part.strip())
+            self.assertEqual(set(directives['form-action'].split()), {"'self'",'https://yoomoney.ru','https://yookassa.ru'})
+            self.assertEqual(directives['script-src'],"'self'")
+            self.assertNotIn('*',directives['form-action'])

@@ -26,12 +26,31 @@ if (menu && nav) {
 }
 const form = document.querySelector('#purchase-form');
 if (form) {
-  form.addEventListener('submit', () => {
+  const button = form.querySelector('button[type="submit"]');
+  const originalButton = button.innerHTML;
+  const status = form.querySelector('.form-status');
+  let submitting = false;
+  let recoveryTimer;
+  const recover = () => {
+    window.clearTimeout(recoveryTimer);
+    submitting = false;
+    button.disabled = false;
+    button.innerHTML = originalButton;
+    form.removeAttribute('aria-busy');
+    status.textContent = 'Переход к оплате не открылся. Попробуйте нажать кнопку ещё раз.';
+  };
+  form.addEventListener('submit', event => {
     if (!form.checkValidity()) return;
-    const button = form.querySelector('button[type="submit"]');
+    if (submitting) { event.preventDefault(); return; }
+    submitting = true;
     button.disabled = true; button.textContent = button.dataset.loading;
     form.setAttribute('aria-busy', 'true');
-    form.querySelector('.form-status').textContent = 'Пожалуйста, дождитесь перехода к оплате.';
+    status.textContent = 'Пожалуйста, дождитесь перехода к оплате.';
+    // If navigation is blocked/interrupted, retain the same checkout key on retry.
+    recoveryTimer = window.setTimeout(recover, 20000);
+  });
+  document.addEventListener('securitypolicyviolation', event => {
+    if (submitting && event.effectiveDirective === 'form-action') recover();
   });
 }
 window.addEventListener('pageshow', event => {
