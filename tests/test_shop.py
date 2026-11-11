@@ -137,7 +137,7 @@ class ShopTests(TestCase):
         response, provider = self.mock_checkout(data)
         self.assertEqual(response.status_code, 302)
         self.assertEqual(Order.objects.count(), 1)
-        provider.create_payment.assert_not_called()
+        provider.create_payment.assert_called_once()
 
     def test_price_snapshot_survives_product_edit(self):
         data = self.form_data()
@@ -605,3 +605,49 @@ class ShopTests(TestCase):
         with override_settings(ROBOKASSA_TEST_MODE=False):
             with self.assertRaisesMessage(PaymentError, 'checkout_mode_changed'):
                 create_checkout(self.product, data['request_key'])
+
+    def test_password_rotation_recalculates_signature_without_duplicate_invoice(self):
+        key = uuid.uuid4()
+        order, first_url = create_checkout(self.product, key)
+        with override_settings(ROBOKASSA_TEST_PASSWORD1='replacement-test-password'):
+            retried, next_url = create_checkout(self.product, key)
+            params = {k: v[0] for k, v in parse_qs(urlsplit(next_url).query).items()}
+            expected = hashlib.sha256((':'.join([
+                settings.ROBOKASSA_MERCHANT_LOGIN, '890.00', str(order.robokassa_invoice.pk),
+                'replacement-test-password', 'Shp_currency=RUB', 'Shp_mode=test',
+                f'Shp_order={order.pk}',
+            ])).encode()).hexdigest()
+            self.assertEqual(params['SignatureValue'], expected)
+            self.assertNotEqual(next_url, first_url)
+            self.assertEqual(retried.pk, order.pk)
+            self.assertEqual(RobokassaInvoice.objects.count(), 1)
+            self.assertEqual(retried.status, 'pending')
+            self.assertEqual(retried.amount, Decimal('890.00'))
+
+    def test_algorithm_or_merchant_change_requires_new_checkout(self):
+        for changed in ({'ROBOKASSA_HASH_ALGORITHM': 'MD5'},
+                        {'ROBOKASSA_MERCHANT_LOGIN': 'changed-merchant'}):
+            with self.subTest(changed=changed):
+                data = self.form_data()
+                order, _ = create_checkout(self.product, data['request_key'])
+                with override_settings(**changed):
+                    with self.assertRaisesMessage(PaymentError, 'checkout_configuration_changed'):
+                        create_checkout(self.product, data['request_key'])
+                    self.client.get('/')
+                    next_key = self.client.session['checkout_key']
+                    self.assertNotEqual(next_key, data['request_key'])
+                    new_order, url = create_checkout(self.product, next_key)
+                    self.assertNotEqual(new_order.pk, order.pk)
+                    self.assertEqual(new_order.robokassa_invoice.hash_algorithm, settings.ROBOKASSA_HASH_ALGORITHM)
+                    self.assertEqual(new_order.robokassa_invoice.merchant_login, settings.ROBOKASSA_MERCHANT_LOGIN)
+                order.refresh_from_db()
+                self.assertEqual(order.robokassa_invoice.hash_algorithm, 'SHA256')
+                self.assertEqual(order.robokassa_invoice.merchant_login, 'unit-test-shop')
+
+    def test_repeated_checkout_without_configuration_change_keeps_same_invoice_and_url(self):
+        key = uuid.uuid4()
+        first, first_url = create_checkout(self.product, key)
+        second, second_url = create_checkout(self.product, key)
+        self.assertEqual(first.pk, second.pk)
+        self.assertEqual(first_url, second_url)
+        self.assertEqual(RobokassaInvoice.objects.count(), 1)

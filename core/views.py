@@ -21,8 +21,12 @@ def landing(request):
     old_key = request.session.get('checkout_key')
     complete = old_key and Order.objects.filter(request_key=old_key, status__in=['paid','refunded','cancelled']).exists()
     legacy = old_key and Order.objects.filter(request_key=old_key).exclude(provider='robokassa').exists()
-    changed_mode = old_key and Order.objects.filter(request_key=old_key, robokassa_invoice__test_mode=not settings.ROBOKASSA_TEST_MODE).exists()
-    if not old_key or complete or legacy or changed_mode:
+    changed_configuration = old_key and Order.objects.filter(request_key=old_key,
+        robokassa_invoice__isnull=False).exclude(
+            robokassa_invoice__test_mode=settings.ROBOKASSA_TEST_MODE,
+            robokassa_invoice__merchant_login=settings.ROBOKASSA_MERCHANT_LOGIN,
+            robokassa_invoice__hash_algorithm=settings.ROBOKASSA_HASH_ALGORITHM).exists()
+    if not old_key or complete or legacy or changed_configuration:
         request.session['checkout_key'] = str(uuid.uuid4())
     form = CheckoutForm(initial={'request_key': request.session['checkout_key']})
     return render(request, 'landing.html', {'product': product, 'form': form, 'payment_failed': request.session.pop('payment_failed', False)})

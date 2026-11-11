@@ -42,8 +42,11 @@ def create_checkout(product, key):
         invoice = getattr(order, 'robokassa_invoice', None)
         if invoice and invoice.test_mode != settings.ROBOKASSA_TEST_MODE:
             raise PaymentError('checkout_mode_changed')
-        if order.checkout_url:
-            return order, order.checkout_url
+        if invoice and (invoice.merchant_login != settings.ROBOKASSA_MERCHANT_LOGIN
+                        or invoice.hash_algorithm != settings.ROBOKASSA_HASH_ALGORITHM):
+            raise PaymentError('checkout_configuration_changed')
+        # Regenerate the signature with the current password on every retry.
+        # The provider reuses the same invoice; no remote charge is initiated here.
         # Stable local InvId: no remote creation request or external cache window.
         result = provider.create_payment(order)
         order.provider_payment_id = result.payment_id
