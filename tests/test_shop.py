@@ -77,7 +77,7 @@ class ShopTests(TestCase):
         self.assertContains(response, 'aria-expanded="false"')
         self.assertContains(response, '/static/img/food.webp')
         self.assertNotContains(response, 'ДЕМОКОЛЛЕКЦИЯ')
-        self.assertContains(response, 'Тестовый режим Робокассы')
+        self.assertNotContains(response, 'Тестовый режим Робокассы: реальные продажи закрыты.')
         self.assertIn("frame-ancestors 'none'", response.headers['Content-Security-Policy'])
 
     def test_legal_health_seo_and_404(self):
@@ -566,3 +566,35 @@ class ShopTests(TestCase):
             self.own_order(order)
             self.client.get(reverse('order-status', args=[order.pk]))
             send.assert_not_called()
+
+    @override_settings(DEBUG=False, ROBOKASSA_TEST_MODE=True, LEGAL_READY=False, FISCALIZATION_READY=False)
+    def test_owner_can_enable_provider_test_checkout_on_https_server(self):
+        self.assertTrue(can_sell(self.product))
+
+    @override_settings(DEBUG=False, ROBOKASSA_TEST_MODE=False, LEGAL_READY=False, FISCALIZATION_READY=False)
+    def test_live_checkout_uses_owner_switch_without_faking_review_flags(self):
+        self.product.is_demo = False
+        self.product.save()
+        self.assertTrue(can_sell(self.product))
+        self.assertFalse(settings.LEGAL_READY)
+        self.assertFalse(settings.FISCALIZATION_READY)
+        with override_settings(SALES_ENABLED=False):
+            self.assertFalse(can_sell(self.product))
+        with override_settings(ROBOKASSA_PASSWORD2=''):
+            self.assertFalse(can_sell(self.product))
+
+    def test_mode_change_rotates_browser_checkout_key(self):
+        data = self.form_data()
+        self.client.post('/checkout/', data)
+        with override_settings(ROBOKASSA_TEST_MODE=False):
+            self.client.get('/')
+            self.assertNotEqual(self.client.session['checkout_key'], data['request_key'])
+
+    def test_stale_test_checkout_never_reused_for_live_payment(self):
+        data = self.form_data()
+        self.client.post('/checkout/', data)
+        self.product.is_demo = False
+        self.product.save()
+        with override_settings(ROBOKASSA_TEST_MODE=False):
+            with self.assertRaisesMessage(PaymentError, 'checkout_mode_changed'):
+                create_checkout(self.product, data['request_key'])

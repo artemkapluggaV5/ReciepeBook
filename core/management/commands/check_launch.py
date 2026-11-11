@@ -18,7 +18,11 @@ class Command(BaseCommand):
             except (OSError, ValueError):
                 issues.append('Private PDF is missing or invalid.')
             if not can_sell(product):
-                issues.append('Sales prerequisites incomplete: SALES_ENABLED, legal pages, fiscalization, RU merchant, provider credentials, real product.')
+                issues.append('Checkout unavailable: SALES_ENABLED, provider credentials, currency or real product.')
+        if not settings.LEGAL_READY or not settings.FISCALIZATION_READY or settings.MERCHANT_COUNTRY != 'RU':
+            issues.append('Complete legal/fiscalization review and merchant country configuration.')
+        if LegalPage.objects.filter(is_draft=True).exists() or LegalPage.objects.filter(slug__in=['privacy', 'offer', 'consent', 'refunds', 'contacts']).count() != 5:
+            issues.append('Complete the legal documents.')
         if settings.DEBUG or settings.ROBOKASSA_TEST_MODE:
             issues.append('Disable DEBUG and ROBOKASSA_TEST_MODE for real sales.')
         for name in ['CONTACT_EMAIL']:

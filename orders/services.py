@@ -1,7 +1,6 @@
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
-from core.models import LegalPage
 from payments.providers import get_provider, password, PaymentError
 from .models import Order
 
@@ -13,17 +12,13 @@ def can_sell(product):
         password(2, settings.ROBOKASSA_TEST_MODE)
     except PaymentError:
         return False
-    sandbox = settings.DEBUG and settings.ROBOKASSA_TEST_MODE
-    if sandbox and settings.ROBOKASSA_MERCHANT_LOGIN:
-        return True
-    identity_ready = ('[' not in settings.MERCHANT_NAME and '[' not in settings.MERCHANT_DETAILS
-                      and not settings.CONTACT_EMAIL.endswith('.invalid'))
-    return (settings.SALES_ENABLED and settings.LEGAL_READY and settings.FISCALIZATION_READY
-            and settings.MERCHANT_COUNTRY == 'RU' and bool(settings.ROBOKASSA_MERCHANT_LOGIN)
-            and settings.ROBOKASSA_CURRENCY == product.currency == 'RUB' and not product.is_demo
-            and identity_ready
-            and not LegalPage.objects.filter(is_draft=True).exists()
-            and LegalPage.objects.filter(slug__in=['privacy','offer','consent','refunds','contacts']).count() == 5)
+    # SALES_ENABLED is the owner's explicit operational switch. Legal/fiscal
+    # review flags belong to check_launch, not a second hidden checkout switch.
+    if not settings.ROBOKASSA_MERCHANT_LOGIN or settings.ROBOKASSA_CURRENCY != product.currency:
+        return False
+    if not settings.ROBOKASSA_TEST_MODE and product.is_demo:
+        return False
+    return product.currency == 'RUB'
 
 def create_checkout(product, key):
     if not can_sell(product):
@@ -44,6 +39,9 @@ def create_checkout(product, key):
             raise PaymentError('request_conflict')
         if order.status in [Order.Status.PAID, Order.Status.REFUNDED]:
             return order, None
+        invoice = getattr(order, 'robokassa_invoice', None)
+        if invoice and invoice.test_mode != settings.ROBOKASSA_TEST_MODE:
+            raise PaymentError('checkout_mode_changed')
         if order.checkout_url:
             return order, order.checkout_url
         # Stable local InvId: no remote creation request or external cache window.
