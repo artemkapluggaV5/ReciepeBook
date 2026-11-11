@@ -213,3 +213,40 @@ python manage.py resend_delivery ORDER_UUID --renew
 Для реальной отправки нужно настроить SMTP для ящика `marishkinirecepti@mail.ru`: `EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` и TLS/SSL по требованиям почтового провайдера. Пароль хранится только в переменных окружения. Изменение From не подключает почтовый аккаунт; локально используется console backend.
 
 По просьбе владельца ссылки на privacy/consent/refunds временно скрыты с главной страницы; сами страницы и записи сохранены. Служебные предупреждения в юридических страницах скрыты, но `is_draft` оферты и серверные ограничения продаж сохранены. Файл оферты не редактировался; его текст в БД не изменён.
+
+
+### Подключение готового сборника (107 страниц, 91 рецепт)
+
+Сам PDF не хранится в GitHub и не входит в Docker-образ. Актуальный файл
+`marina-cookbook-approved.pdf` загружается владельцем по SFTP в `/opt/marina-recipes/`.
+Затем выполните на сервере:
+
+```bash
+cd /opt/marina-recipes
+git pull --ff-only origin main
+docker compose up -d --build
+docker compose cp marina-cookbook-approved.pdf web:/app/private/marina-cookbook-approved.pdf
+docker compose exec -u root web chown 10001:10001 /app/private/marina-cookbook-approved.pdf
+docker compose exec -u root web chmod 640 /app/private/marina-cookbook-approved.pdf
+docker compose exec web python manage.py connect_cookbook
+```
+
+Команда сверяет SHA-256 с `products/cookbook_release.json` до изменения товара.
+Она устанавливает файл, 107 страниц, 91 рецепт и снимает демонстрационный статус
+товара. Цену, настройки продаж и статусы оплаты не меняет. Повторная загрузка
+старого storefront.json перезапишет товар: после подключения PDF её не выполняйте.
+При следующей редакции книги обновите манифест вместе с приватным файлом.
+Файл сохраняется в постоянном Docker-томе private_files, доступном web и delivery.
+Не помещайте его в static, public-media или GitHub. Резервируйте том private_files.
+
+Для SMTP Mail.ru создайте пароль внешнего приложения в настройках Mail ID.
+На сервере выполните `python3 deploy/configure_mail.py` и введите пароль в скрытом
+приглашении. Скрипт сохраняет только почтовые настройки в .env с правами 600,
+использует smtp.mail.ru:465 SSL, не печатает пароль и не включает продажи.
+После этого: `docker compose up -d --force-recreate web delivery`.
+Проверка реальной отправки: `docker compose exec web python manage.py sendtestemail marishkinirecepti@mail.ru`.
+Успешная SMTP-передача не доказывает доставку во входящие: проверьте почту и спам.
+
+Покупатель получает HTML/текстовое письмо с защищённой ссылкой, а не PDF-вложение
+(файл около 189 МиБ). Ссылка доступна только оплаченному заказу, 30 дней и до 20
+скачиваний по умолчанию. Фактические ограничения настраиваются DOWNLOAD_DAYS/LIMIT.
