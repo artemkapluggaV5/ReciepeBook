@@ -1,177 +1,102 @@
 # Новогодний сборник «Маришкины рецепты»
 
-Django 5.2, PostgreSQL, Robokassa, закрытый PDF. Покупка без аккаунта и без почты:
-лендинг → Робокасса → подтверждение сервером → страница с кнопкой «Скачать сборник».
-SMTP, Unisender, Gmail API, отправка писем и почтовый worker удалены.
-Контактный адрес поддержки CONTACT_EMAIL остаётся обычной ссылкой для обращений.
+Django 5.2 LTS, PostgreSQL, ЮKassa, приватный PDF.
+Лендинг → оплата на странице ЮKassa → проверка сервером → «Скачать сборник».
+Без аккаунта и без рассылки. Контакт поддержки: marishkinirecepti@mail.ru.
 
-## Структура
+## Обновить существующий сервер
 
-- core — лендинг, юридические страницы, настройки продавца.
-- products — товар, цена, обложка, содержание, Admin.
-- orders — заказы, согласие, защита от повторных запросов, страница скачивания.
-- payments — Robokassa и проверяемый ResultURL.
-- delivery — подписанные ссылки, приватный PDF, лимиты доступа; никаких писем.
-- templates, static — русская адаптивная страница и стили.
-- deploy, docs — Nginx, эксплуатация и настройка оплаты.
+В Termius:
 
-## Первый запуск
+```bash
+cd /opt/marina-recipes
+git pull --ff-only origin main
+python3 deploy/configure_yookassa.py --shop-id 1527129
+```
 
-Python 3.12+; PowerShell на Windows:
+На скрытый запрос вставить **тестовый ключ ЮKassa**. Затем:
+
+```bash
+docker compose stop web
+mkdir -p /srv/backups/cookbook
+docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > /srv/backups/cookbook/before-yookassa.dump
+docker compose up -d --build --remove-orphans
+docker compose exec web python manage.py check
+```
+
+Не используйте `down -v`: в volumes база и сборник. Init автоматически применяет
+миграции и собирает static. Старые оплаченные заказы сохраняют доступ. Неоплаченные
+заказы прежнего провайдера не конвертируются в оплаченные; оформите новый через главную.
+
+В кабинете **тестового магазина** ЮKassa укажите HTTP-уведомления:
+`https://marishkinirecepti.ru/payments/yookassa/webhook/`.
+События: `payment.succeeded`, `payment.canceled`, `refund.succeeded`.
+Возврат на сайт передаётся в API автоматически; отдельные SuccessURL/FailURL не нужны.
+Даже без webhook при возврате сайт проверяет статус напрямую через API.
+
+## Первый локальный запуск
 
 ```powershell
 python -m venv .venv
 .venv/Scripts/python.exe -m pip install -r requirements.txt
 Copy-Item .env.example .env
-$env:DEBUG = 'True'
 .venv/Scripts/python.exe manage.py migrate
 .venv/Scripts/python.exe manage.py seed_demo
-.venv/Scripts/python.exe manage.py createsuperuser
 .venv/Scripts/python.exe manage.py runserver 127.0.0.1:8002
 ```
 
-Откройте http://127.0.0.1:8002/. SQLite допускается только для разработки.
-seed_demo — только первый запуск, не выполняйте поверх настоящего товара.
+http://127.0.0.1:8002/. SQLite только для разработки. seed_demo — только для новой БД,
+не запускать поверх настоящего товара. Для production заполнить .env и использовать
+`docker compose up -d --build`, PostgreSQL, HTTPS и deploy/nginx.conf.
 
-Docker / PostgreSQL:
+## Структура
 
-```bash
-cp .env.example .env
-chmod 600 .env
-# Заполните SECRET_KEY, DB_PASSWORD, домен и остальные параметры.
-docker compose up -d --build
-docker compose exec web python manage.py createsuperuser
-```
+- core — лендинг, юридические страницы, продавец и диагностика.
+- products — товар, цена и имя приватного PDF, Admin.
+- orders — согласие, заказы, защита от повторных покупок, страница скачивания.
+- payments — REST API ЮKassa, webhook, проверка платежей/возвратов.
+- delivery — подписанные ссылки на файл с ограничением срока/числа скачиваний.
+- templates / static — адаптивный русский интерфейс.
+- deploy / docs — настройка, обновление и эксплуатация.
 
-PostgreSQL доступен только внутри Docker; web — 127.0.0.1:8000.
-init применяет миграции и collectstatic; успешное завершение init (Exited 0) нормально.
-Настройки Nginx находятся в deploy/nginx.conf. Для production нужны HTTPS, домен,
-правильные ALLOWED_HOSTS, CSRF_TRUSTED_ORIGINS, SITE_URL и TRUST_PROXY=True за этим proxy.
-Не публикуйте порт приложения напрямую.
+## Переменные окружения
 
-## Обновление сервера с прежней почтовой версии
-
-В Termius, в /opt/marina-recipes. Сначала остановите web и старую рассылку, сделайте backup:
-
-```bash
-cd /opt/marina-recipes
-docker compose stop web delivery
-mkdir -p /srv/backups/cookbook
-docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > /srv/backups/cookbook/before-direct-download.dump
-git pull --ff-only origin main
-docker compose up -d --build --remove-orphans
-docker compose ps -a
-docker compose exec web python manage.py check
-```
-
-Миграция orders/0003 удаляет email покупателей и прежние статусы отправки.
-Суммы, подтверждения оплаты, номера счетов, UUID, версии и сроки ссылок сохраняются.
-Старый delivery-контейнер удаляется через --remove-orphans. Не используйте down -v:
-там постоянные база и PDF. Значения SMTP/API в старом .env больше не используются;
-их можно удалить. Даже при оставшемся EMAIL_BACKEND отправка принудительно отключена.
-
-## Настройки
-
-.env.example содержит только примеры. Основные переменные:
+Секреты только в .env (игнорируется git). Пример — .env.example.
 
 | Назначение | Переменные |
 | --- | --- |
 | Сайт | DEBUG, SECRET_KEY, ALLOWED_HOSTS, CSRF_TRUSTED_ORIGINS, SITE_URL, TRUST_PROXY |
 | База | DB_NAME, DB_USER, DB_PASSWORD; Compose задаёт DATABASE_URL |
-| Продавец | MERCHANT_NAME, MERCHANT_DETAILS, MERCHANT_COUNTRY, CONTACT_EMAIL, SELLER_DISPLAY_NAME, SELLER_INN, SELLER_OGRN |
-| Продажи | SALES_ENABLED, LEGAL_READY, FISCALIZATION_READY, LEGAL_VERSION |
-| Оплата | ROBOKASSA_MERCHANT_LOGIN, ROBOKASSA_PASSWORD1/2, ROBOKASSA_TEST_PASSWORD1/2, ROBOKASSA_TEST_MODE, ROBOKASSA_HASH_ALGORITHM |
-| PDF | PRIVATE_ROOT, DOWNLOAD_DAYS (30), DOWNLOAD_LIMIT (20) |
+| Оплата | SALES_ENABLED, YOOKASSA_SHOP_ID, YOOKASSA_SECRET_KEY, YOOKASSA_TEST_MODE |
+| PDF | PRIVATE_ROOT, DOWNLOAD_DAYS, DOWNLOAD_LIMIT |
+| Владелец | CONTACT_EMAIL, SELLER_DISPLAY_NAME, SELLER_INN, SELLER_OGRN, MERCHANT_NAME, MERCHANT_DETAILS, MERCHANT_COUNTRY |
+| Проверка запуска | LEGAL_READY, FISCALIZATION_READY, LEGAL_VERSION |
 
-Цена и файл берутся из Product в Admin; клиент не может подменить сумму или статус.
-Переход к оплате управляется SALES_ENABLED; обязательны платёжные пароли, магазин,
-совпадающая валюта, приватный PDF и настоящий товар в боевом режиме.
-check_launch отдельно проверяет готовность юридических документов, реквизитов и кассы.
-Флаги LEGAL_READY/FISCALIZATION_READY команда включения оплаты не подменяет.
-Электронный чек и необходимые контакты для него настраиваются у платёжного провайдера,
-независимо от скачивания книги на сайте. Не объявляйте FISCALIZATION_READY без проверки.
+В тестовом режиме требуется ключ test_. Боевой ключ не используется как запасной.
+Инструкция по протоколу, проверкам и фискализации: [docs/payment.md](docs/payment.md).
+Исходящий email полностью отключён; SMTP и почтовые API не нужны.
 
-## Робокасса и скачивание
+## Настоящий PDF
 
-В кабинете магазина укажите UTF-8 и алгоритм хэша, совпадающий с настройками сайта:
-
-- ResultURL: https://marishkinirecepti.ru/payments/robokassa/result/ — POST.
-- SuccessURL: https://marishkinirecepti.ru/payments/robokassa/success/ — GET (POST также поддерживается).
-- FailURL: https://marishkinirecepti.ru/payments/robokassa/fail/ — GET.
-
-ResultURL проверяет подпись паролем №2, сумму, валюту, InvId и Shp_* и только затем
-сохраняет paid. Повторное событие не дублирует оплату. SuccessURL проверяет подпись
-паролем №1, восстанавливает сессию только своего заказа и перенаправляет на /order/UUID/.
-Один браузерный возврат никогда не подтверждает платёж. Если ResultURL запаздывает,
-страница опрашивает статус каждые 3 секунды до 5 минут; потом остаётся ручная проверка.
-FailURL возвращает к /#purchase с возможностью оплаты ещё раз; поздний FailURL для
-уже оплаченного заказа владельца возвращает к скачиванию. Никакого автоматического списания.
-
-Страница заказа доступна браузеру покупки или после подписанного возврата провайдера.
-Чужой UUID недостаточен. Сохраните страницу в закладки, а PDF — на устройство.
-После очистки cookie или смены браузера покупатель обращается в поддержку с номером
-заказа и подтверждением платежа. Администратор сверяет платёж и в Admin выбирает
-«Показать ссылки оплаченных заказов». Действие «Обновить доступ» отзывает старую ссылку.
-Защищённая download-ссылка сама даёт доступ: передавайте только проверенному покупателю.
-
-Срок 30 дней начинается при первом открытии оплаченной страницы; лимит — 20 скачиваний.
-Обновление страницы не продлевает срок. HEAD не расходует лимит. Refunded закрывает
-доступ. Приватный файл не публикуется через static/media. Если PDF отсутствует,
-кнопка скачивания не появляется, ошибка записывается в журнал, оплата сохраняется.
-
-## Подключение готового PDF
-
-Файл marina-cookbook-approved.pdf (107 страниц, 91 рецепт) не входит в Git и Docker-образ.
-Загрузите его через SFTP в /opt/marina-recipes/, затем:
-
-```bash
-docker compose cp marina-cookbook-approved.pdf web:/app/private/marina-cookbook-approved.pdf
-docker compose exec -u root web chown 10001:10001 /app/private/marina-cookbook-approved.pdf
-docker compose exec -u root web chmod 640 /app/private/marina-cookbook-approved.pdf
-docker compose exec web python manage.py connect_cookbook
-```
-
-connect_cookbook сверяет SHA-256 с манифестом релиза и привязывает файл к товару,
-не включая продажи и не меняя цену. При обновлении самого PDF обновите и манифест.
+Готовый файл не лежит в Git и не входит в образ. Загрузить через SFTP в приватный
+каталог, скопировать в volume (`docker compose cp ... web:/app/private/ИМЯ.pdf`),
+назначить владельца 10001:10001, права 640. В Product.pdf_name указать только имя файла.
+Нельзя размещать PDF в static или public-media.
+Для уже подготовленного утверждённого файла есть команда `connect_cookbook`:
+её параметры и контрольную сумму смотрите через `manage.py connect_cookbook --help`.
 
 ## Проверки
 
-```bash
-python manage.py check
-python manage.py makemigrations --check --dry-run
-python manage.py test tests --settings=config.test_settings
-# Только в отдельной тестовой PostgreSQL, роль должна иметь CREATEDB:
-python manage.py test tests --settings=config.postgres_settings
+```powershell
+.venv/Scripts/python.exe manage.py check
+.venv/Scripts/python.exe manage.py makemigrations --check --dry-run
+.venv/Scripts/python.exe manage.py test tests --settings=config.test_settings
 ```
 
-Тесты не требуют платёжных ключей и не отправляют письма. Покрываются форма без email,
-CSRF, серверная цена, подписи, повторные события, ожидание callback, signed GET/POST
-возврат без cookie, запрет чужого/неоплаченного доступа, скачивание, отзыв и истечение,
-отсутствующий PDF и миграция старых оплат. Конкурентные тесты требуют PostgreSQL.
-Моки не доказывают боевую оплату: отдельно выполните внешний тест Robokassa, реальный
-возврат на сайт и сохранение PDF на телефоне. Проверяйте кассовый чек отдельно.
+PostgreSQL: задать DATABASE_URL и запустить `manage.py test tests --settings=config.postgres_settings`.
+CI использует PostgreSQL 17 и Python 3.12. Внешний API в автоматических тестах замокан;
+отдельная проверка реальным тестовым ключом описана в docs/QA.md.
 
-## Эксплуатация
-
-check_launch проверяет наличие production-настроек, не юридическую корректность
-документов и не фактическое зачисление. Сверяйте длительные pending с кабинетом.
-Автоматическая сверка потерянных callback и API возвратов не реализованы.
-Сохраняйте зашифрованные резервные копии базы, private_files, public_images и .env вне
-VPS, проверяйте восстановление. Не выводите полный docker compose config: он содержит
-секреты. Фотографии и документы владельца не заменяются выдуманными материалами.
-
-## Включение оплаты владельцем
-
-На VPS после обновления исходников:
-
-```bash
-python3 deploy/enable_payments.py --mode live
-docker compose up -d --build --remove-orphans
-```
-
-Команда меняет только SALES_ENABLED=True и ROBOKASSA_TEST_MODE=False, если в .env
-заданы логин и оба боевых пароля. Если их нет, выводятся только названия недостающих
-переменных; содержимое секретов не печатается. Для внешней тестовой проверки используйте
---mode test и отдельные TEST_PASSWORD1/2; DEBUG для этого включать не нужно.
-После переключения режимов обновите страницу покупки: старый тестовый счёт повторно
-не используется как боевой. Ранее созданные callback проверяются по снимку своего режима.
+Перед реальными продажами: `manage.py check --deploy` и `manage.py check_launch`,
+внешняя тестовая оплата, настройка чеков у провайдера, резервное копирование и проверка
+восстановления. Владелец предоставляет окончательный PDF, реквизиты и юридические документы.

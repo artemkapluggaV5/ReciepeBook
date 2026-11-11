@@ -23,8 +23,8 @@ class Command(BaseCommand):
             issues.append('Complete legal/fiscalization review and merchant country configuration.')
         if LegalPage.objects.filter(is_draft=True).exists() or LegalPage.objects.filter(slug__in=['privacy', 'offer', 'consent', 'refunds', 'contacts']).count() != 5:
             issues.append('Complete the legal documents.')
-        if settings.DEBUG or settings.ROBOKASSA_TEST_MODE:
-            issues.append('Disable DEBUG and ROBOKASSA_TEST_MODE for real sales.')
+        if settings.DEBUG or settings.YOOKASSA_TEST_MODE:
+            issues.append('Disable DEBUG and YOOKASSA_TEST_MODE for real sales.')
         for name in ['CONTACT_EMAIL']:
             if parseaddr(getattr(settings, name))[1].endswith('.invalid'):
                 issues.append(f'Replace {name}.')

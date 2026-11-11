@@ -1,37 +1,30 @@
-"""Read-only diagnosis. Never print signed URLs, passwords or customer details."""
 import uuid
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.urls import reverse
 from orders.models import Order
 from payments.models import PaymentEvent
-
+from payments.providers import configured
 
 class Command(BaseCommand):
-    help = 'Read-only payment diagnosis without exposing secrets or changing payment status.'
-
+    help = 'Read-only payment diagnosis; no secrets or signed URLs.'
     def add_arguments(self, parser):
         parser.add_argument('order_id', type=uuid.UUID)
-
     def handle(self, *args, **options):
         try:
-            order = Order.objects.select_related('product', 'robokassa_invoice').get(pk=options['order_id'])
+            order = Order.objects.select_related('product', 'yookassa_invoice').get(pk=options['order_id'])
         except Order.DoesNotExist:
             raise CommandError('Order not found.') from None
-        invoice = getattr(order, 'robokassa_invoice', None)
-        self.stdout.write(f'Order status: {order.status}; amount: {order.amount} {order.currency}')
-        self.stdout.write(f'Authenticated payment events: {PaymentEvent.objects.filter(order=order).count()}')
+        self.stdout.write(f'Provider: {order.provider}; status: {order.status}; amount: {order.amount} {order.currency}')
+        self.stdout.write(f'Authenticated events: {PaymentEvent.objects.filter(order=order).count()}')
+        invoice = getattr(order, 'yookassa_invoice', None)
         if invoice:
-            self.stdout.write(f'Invoice: {invoice.pk}; test: {invoice.test_mode}; hash: {invoice.hash_algorithm}')
-            prefix = 'ROBOKASSA_TEST_' if invoice.test_mode else 'ROBOKASSA_'
-            self.stdout.write(f'Callback password configured: {bool(getattr(settings, prefix + "PASSWORD2"))}')
-        else:
-            self.stdout.write('Local Robokassa invoice: missing')
+            self.stdout.write(f'Shop: {invoice.shop_id}; test: {invoice.test_mode}; payment ID: {order.provider_payment_id or "not created"}')
+        self.stdout.write(f'YooKassa configured: {configured()}')
         try:
             order.product.private_path()
             self.stdout.write('Private PDF: available')
         except (OSError, ValueError):
             self.stdout.write('Private PDF: unavailable')
-        for label, name in [('ResultURL (POST)', 'robokassa-result'), ('SuccessURL', 'robokassa-success'), ('FailURL', 'robokassa-fail')]:
-            self.stdout.write(f'{label}: {settings.SITE_URL.rstrip("/")}{reverse(name)}')
-        self.stdout.write('No payment status was changed. Compare ResultURL with the merchant cabinet.')
+        self.stdout.write('Webhook: ' + settings.SITE_URL + reverse('yookassa-webhook'))
+        self.stdout.write('No status changed. Pending orders verify directly through API on the owned status page.')

@@ -20,12 +20,11 @@ def landing(request):
         return render(request, 'message.html', {'title': 'Скоро будет вкусно', 'text': 'Сборник готовится к публикации. Заходите позже.'}, status=503)
     old_key = request.session.get('checkout_key')
     complete = old_key and Order.objects.filter(request_key=old_key, status__in=['paid','refunded','cancelled']).exists()
-    legacy = old_key and Order.objects.filter(request_key=old_key).exclude(provider='robokassa').exists()
+    legacy = old_key and Order.objects.filter(request_key=old_key).exclude(provider='yookassa').exists()
     changed_configuration = old_key and Order.objects.filter(request_key=old_key,
-        robokassa_invoice__isnull=False).exclude(
-            robokassa_invoice__test_mode=settings.ROBOKASSA_TEST_MODE,
-            robokassa_invoice__merchant_login=settings.ROBOKASSA_MERCHANT_LOGIN,
-            robokassa_invoice__hash_algorithm=settings.ROBOKASSA_HASH_ALGORITHM).exists()
+        yookassa_invoice__isnull=False).exclude(
+            yookassa_invoice__test_mode=settings.YOOKASSA_TEST_MODE,
+            yookassa_invoice__shop_id=settings.YOOKASSA_SHOP_ID).exists()
     if not old_key or complete or legacy or changed_configuration:
         request.session['checkout_key'] = str(uuid.uuid4())
     form = CheckoutForm(initial={'request_key': request.session['checkout_key']})

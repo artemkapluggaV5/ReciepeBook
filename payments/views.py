@@ -1,80 +1,62 @@
+import json
 import logging
-from django.db import IntegrityError
-from django.http import HttpResponse, QueryDict
+import uuid
+from django.core import signing
+from django.http import HttpResponse
 from django.shortcuts import render, redirect
-from orders.views import remember_order
-from orders.models import Order
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-from .services import process_result, validate_event, RejectedEvent, InvalidSignature
+from django.views.decorators.http import require_POST, require_safe
+from orders.models import Order
+from orders.views import remember_order
+from .providers import PaymentError, RETURN_SALT, valid_payment_id
+from .services import sync_payment, process_refund
 
 logger = logging.getLogger(__name__)
 
-@require_http_methods(['GET', 'HEAD'])
-def widget_check(request):
-    # This cabinet-created invoice has no local order binding.
-    # Never grant downloads or relax ResultURL verification for it.
-    return render(request, 'payment_widget_check.html')
-
-
-def parameters(request):
-    if request.method == 'POST':
-        if request.content_type != 'application/x-www-form-urlencoded':
-            raise RejectedEvent('content_type')
-        if request.GET:
-            raise RejectedEvent('mixed_sources')
-        event = QueryDict(request.body, encoding='utf-8')
-    else:
-        event = request.GET
-    if any(len(values) != 1 for _, values in event.lists()):
-        raise RejectedEvent('duplicate_parameters')
-    return event
-
-# Server-to-server callback. Robokassa's documented signature replaces CSRF ONLY here.
-# Continue settling existing invoices when new sales are disabled for maintenance.
 @csrf_exempt
-@require_http_methods(['POST', 'GET'])
-def result(request):
+@require_POST
+def webhook(request):
+    if request.content_type != 'application/json':
+        return HttpResponse(status=400)
     try:
-        number = process_result(parameters(request))
-    except InvalidSignature as exc:
-        logger.warning('robokassa_result_rejected reason=%s', exc.code)
-        return HttpResponse('Invalid signature', status=403, content_type='text/plain')
-    except RejectedEvent as exc:
-        logger.warning('robokassa_result_rejected reason=%s', exc.code)
-        return HttpResponse('Invalid payment', status=400, content_type='text/plain')
-    except (IntegrityError, UnicodeDecodeError):
-        logger.warning('robokassa_result_rejected reason=database_or_encoding')
-        return HttpResponse('Invalid payment', status=400, content_type='text/plain')
-    logger.info('robokassa_result_accepted invoice=%s', number)
-    return HttpResponse(f'OK{number}', content_type='text/plain')
+        event = json.loads(request.body)
+        if not isinstance(event, dict) or event.get('type') != 'notification':
+            return HttpResponse(status=400)
+        kind = event.get('event')
+        if kind not in {'payment.succeeded', 'payment.canceled', 'payment.waiting_for_capture', 'refund.succeeded'}:
+            return HttpResponse(status=200)
+        obj = event.get('object')
+        if not isinstance(obj, dict) or not valid_payment_id(obj.get('id')):
+            return HttpResponse(status=400)
+        payment_id = obj.get('payment_id') if kind == 'refund.succeeded' else obj['id']
+        # Unknown IDs must not trigger arbitrary authenticated API queries.
+        order = Order.objects.filter(provider='yookassa', provider_payment_id=payment_id).first()
+        if not order:
+            return HttpResponse(status=200)
+        if kind == 'refund.succeeded':
+            process_refund(obj['id'], order.pk)
+        else:
+            sync_payment(order.pk, force=True)
+    except (ValueError, UnicodeError):
+        return HttpResponse(status=400)
+    except PaymentError as exc:
+        logger.warning('yookassa_verification_error code=%s', str(exc))
+        return HttpResponse(status=503)
+    return HttpResponse(status=200)
 
-# Robokassa may return via cross-site POST without a SameSite=Lax cookie.
-# A verified Password1 signature grants access to THIS order only, never confirms payment.
-@csrf_exempt
-@require_http_methods(['GET', 'POST'])
-def success(request):
+@require_safe
+def payment_return(request):
     try:
-        invoice = validate_event(parameters(request), success_redirect=True)
-    except (RejectedEvent, UnicodeDecodeError):
-        return render(request, 'message.html', {'title': 'Не удалось проверить возврат',
-            'text': 'Вернитесь на страницу заказа в браузере покупки или обратитесь в поддержку.'}, status=400)
-    remember_order(request, invoice.order_id)
-    return redirect('order-status', order_id=invoice.order_id)
+        order_id = uuid.UUID(signing.loads(request.GET.get('token', ''), salt=RETURN_SALT, max_age=86400*7))
+        order = Order.objects.get(pk=order_id, provider='yookassa')
+    except (signing.BadSignature, ValueError, TypeError, Order.DoesNotExist):
+        return render(request, 'message.html', {'title':'Не удалось проверить возврат',
+            'text':'Откройте страницу заказа в браузере покупки или напишите в поддержку.'}, status=400)
+    # The signed return only restores ownership. API verification in status
+    # independently confirms payment; URL/query parameters can never mark paid.
+    remember_order(request, order.pk)
+    return redirect('order-status', order_id=order.pk)
 
-
-@csrf_exempt
-@require_http_methods(['GET', 'POST'])
+@require_safe
 def fail(request):
-    # FailURL is unsigned: never mark failure or grant access from InvId alone.
-    event = request.POST if request.method == 'POST' else request.GET
-    owned = request.session.get('orders', [])
-    paid = Order.objects.filter(pk__in=owned, status=Order.Status.PAID)
-    if event.get('InvId'):
-        paid = paid.filter(robokassa_invoice__id__in=[event['InvId']] if event['InvId'].isdigit() and len(event['InvId']) <= 18 else [])
-    else:
-        paid = paid.order_by('-created_at')
-    order = paid.first()
-    if order:
-        return redirect('order-status', order_id=order.pk)
     return render(request, 'payment_failed.html')

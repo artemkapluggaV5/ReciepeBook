@@ -81,25 +81,10 @@ LEGAL_VERSION = env('LEGAL_VERSION', default='draft-1')
 SALES_ENABLED = env.bool('SALES_ENABLED', default=False)
 LEGAL_READY = env.bool('LEGAL_READY', default=False)
 FISCALIZATION_READY = env.bool('FISCALIZATION_READY', default=False)
-PAYMENT_PROVIDER = 'robokassa'
-ROBOKASSA_MERCHANT_LOGIN = env('ROBOKASSA_MERCHANT_LOGIN', default='')
-ROBOKASSA_PASSWORD1 = env('ROBOKASSA_PASSWORD1', default='')
-ROBOKASSA_PASSWORD2 = env('ROBOKASSA_PASSWORD2', default='')
-ROBOKASSA_TEST_PASSWORD1 = env('ROBOKASSA_TEST_PASSWORD1', default='')
-ROBOKASSA_TEST_PASSWORD2 = env('ROBOKASSA_TEST_PASSWORD2', default='')
-ROBOKASSA_TEST_MODE = env.bool('ROBOKASSA_TEST_MODE', default=True)
-ROBOKASSA_HASH_ALGORITHM = env('ROBOKASSA_HASH_ALGORITHM', default='SHA256').upper()
-ROBOKASSA_CURRENCY = env('ROBOKASSA_CURRENCY', default='RUB').upper()
-ROBOKASSA_PAYMENT_METHOD = env('ROBOKASSA_PAYMENT_METHOD', default='')
-if ROBOKASSA_HASH_ALGORITHM not in {'MD5', 'SHA256', 'SHA384', 'SHA512'}:
-    raise ImproperlyConfigured('Use the same supported Robokassa hash algorithm as in the merchant cabinet.')
-if ROBOKASSA_CURRENCY != 'RUB':
-    raise ImproperlyConfigured('This Robokassa merchant integration supports RUB only; no invented currency parameter.')
-for number in (1, 2):
-    live = globals()[f'ROBOKASSA_PASSWORD{number}']
-    test = globals()[f'ROBOKASSA_TEST_PASSWORD{number}']
-    if live and test and live == test:
-        raise ImproperlyConfigured('Robokassa test and live passwords must be different.')
+PAYMENT_PROVIDER = 'yookassa'
+YOOKASSA_SHOP_ID = env('YOOKASSA_SHOP_ID', default='')
+YOOKASSA_SECRET_KEY = env('YOOKASSA_SECRET_KEY', default='')
+YOOKASSA_TEST_MODE = env.bool('YOOKASSA_TEST_MODE', default=True)
 DOWNLOAD_DAYS = env.int('DOWNLOAD_DAYS', default=30)
 DOWNLOAD_LIMIT = env.int('DOWNLOAD_LIMIT', default=20)
 # Outbound email is disabled, including stale SMTP/API values in an existing .env.

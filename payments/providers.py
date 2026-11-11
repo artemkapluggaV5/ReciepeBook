@@ -1,94 +1,95 @@
-"""Robokassa payment interface: https://docs.robokassa.ru/ru/pay-interface."""
-import hashlib
-import hmac
+"""Server-side YooKassa REST API; untrusted browser/webhook state never confirms payment."""
+import base64
+import json
 import re
-from dataclasses import dataclass
-from decimal import Decimal
-from urllib.parse import urlencode
+import ssl
+import sys
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlsplit
+from urllib.request import Request, build_opener, HTTPRedirectHandler, HTTPSHandler
 from django.conf import settings
-from .models import RobokassaInvoice
+from django.core import signing
+from django.urls import reverse
 
-PAYMENT_URL = 'https://auth.robokassa.ru/Merchant/Index.aspx'
-HASHES = {'SHA256': 'sha256', 'SHA384': 'sha384', 'SHA512': 'sha512', 'MD5': 'md5'}
+API_URL = 'https://api.yookassa.ru/v3/'
+RETURN_SALT = 'yookassa-order-return-v1'
 
 class PaymentError(Exception):
-    pass
+    """Only safe codes, never API bodies, secrets or authorization headers."""
 
-@dataclass(frozen=True)
-class Checkout:
-    payment_id: str
-    url: str
+class NoRedirects(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
-def password(number, test_mode):
-    suffix = f'TEST_PASSWORD{number}' if test_mode else f'PASSWORD{number}'
-    value = getattr(settings, 'ROBOKASSA_' + suffix)
-    if not value:
-        raise PaymentError('robokassa_not_configured')
-    return value
+def configured():
+    key = settings.YOOKASSA_SECRET_KEY
+    return (settings.YOOKASSA_SHOP_ID.isdigit() and bool(key)
+            and key.startswith('test_') == settings.YOOKASSA_TEST_MODE)
 
-def digest(parts, algorithm):
+def valid_payment_id(value):
+    return isinstance(value, str) and bool(re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}', value))
+
+def confirmation_url(payment):
+    confirmation = payment.get('confirmation') or {}
+    url = confirmation.get('confirmation_url', '')
     try:
-        name = HASHES[algorithm]
-    except KeyError:
-        raise PaymentError('unsupported_hash') from None
-    # This is Robokassa's documented colon-separated digest, NOT HMAC.
-    return hashlib.new(name, ':'.join(parts).encode('utf-8')).hexdigest()
+        parsed = urlsplit(url)
+        valid = (confirmation.get('type') == 'redirect' and parsed.scheme == 'https'
+                 and parsed.hostname in {'yoomoney.ru', 'yookassa.ru'}
+                 and not parsed.username and not parsed.password and parsed.port in (None, 443)
+                 and len(url) <= 600)
+    except (ValueError, TypeError):
+        valid = False
+    if not valid:
+        raise PaymentError('invalid_confirmation_url')
+    return url
 
-def user_fields(invoice):
-    return {'Shp_currency': invoice.currency, 'Shp_mode': 'test' if invoice.test_mode else 'live',
-            'Shp_order': str(invoice.order_id)}
-
-def signed_fields(fields):
-    return [f'{key}={fields[key]}' for key in sorted(fields)]
-
-class Robokassa:
-    name = 'robokassa'
-
-    def create_payment(self, order):
-        if not settings.ROBOKASSA_MERCHANT_LOGIN:
-            raise PaymentError('robokassa_not_configured')
-        if order.currency != settings.ROBOKASSA_CURRENCY or order.currency != 'RUB':
-            raise PaymentError('unsupported_currency')
-        # Caller holds the order row lock; OneToOne also prevents duplicate invoices.
-        invoice, _ = RobokassaInvoice.objects.get_or_create(order=order, defaults={
-            'merchant_login': settings.ROBOKASSA_MERCHANT_LOGIN,
-            'test_mode': settings.ROBOKASSA_TEST_MODE, 'currency': order.currency,
-            'hash_algorithm': settings.ROBOKASSA_HASH_ALGORITHM,
-        })
-        if not 1 <= invoice.pk <= 9223372036854775807:
-            raise PaymentError('invalid_invoice')
-        amount = format(Decimal(str(order.amount)), '.2f')
-        fields = user_fields(invoice)
-        parts = [invoice.merchant_login, amount, str(invoice.pk),
-                 password(1, invoice.test_mode), *signed_fields(fields)]
-        # Required callback password is checked before offering a payable URL.
-        password(2, invoice.test_mode)
-        description = re.sub(r'[^\w\s.,-]', '', order.product_title, flags=re.UNICODE)[:100]
-        params = {'MerchantLogin': invoice.merchant_login, 'OutSum': amount, 'InvId': str(invoice.pk),
-                  'Description': description, 'Culture': 'ru', 'Encoding': 'utf-8',
-                  'SignatureValue': digest(parts, invoice.hash_algorithm), **fields}
-        if invoice.test_mode:
-            params['IsTest'] = '1'
-        if settings.ROBOKASSA_PAYMENT_METHOD:
-            params['IncCurrLabel'] = settings.ROBOKASSA_PAYMENT_METHOD
-        return Checkout(str(invoice.pk), PAYMENT_URL + '?' + urlencode(params))
-
-    def verify_webhook(self, event, invoice, success_redirect=False):
-        fields = {key: event[key] for key in event if key.startswith('Shp_')}
-        # Reject missing, extra or changed custom parameters, all of which must be signed.
-        if fields != user_fields(invoice):
-            return False
-        supplied = event.get('SignatureValue', '')
-        if not re.fullmatch(r'[0-9a-fA-F]{32,128}', supplied):
-            return False
+class YooKassa:
+    name = 'yookassa'
+    def request(self, method, resource, payload=None, idempotence_key=None):
+        if not configured():
+            raise PaymentError('yookassa_not_configured')
+        credentials = f'{settings.YOOKASSA_SHOP_ID}:{settings.YOOKASSA_SECRET_KEY}'
+        headers = {'Authorization': 'Basic ' + base64.b64encode(credentials.encode()).decode(),
+                   'Content-Type': 'application/json', 'Accept': 'application/json'}
+        if idempotence_key:
+            headers['Idempotence-Key'] = str(idempotence_key)
+        request = Request(API_URL + resource, method=method, headers=headers,
+                          data=json.dumps(payload).encode() if payload is not None else None)
         try:
-            parts = [event['OutSum'], event['InvId'],
-                     password(1 if success_redirect else 2, invoice.test_mode), *signed_fields(fields)]
-            expected = digest(parts, invoice.hash_algorithm)
-        except (KeyError, PaymentError):
-            return False
-        return hmac.compare_digest(expected.encode('ascii'), supplied.lower().encode('ascii'))
+            # Verified TLS, and auth must never follow a redirect.
+            if sys.platform == 'win32':
+                import truststore
+                context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            else:
+                context = ssl.create_default_context()
+            with build_opener(NoRedirects(), HTTPSHandler(context=context)).open(request, timeout=12) as response:
+                body = response.read(1024 * 1024 + 1)
+                if len(body) > 1024 * 1024:
+                    raise PaymentError('yookassa_response_too_large')
+                result = json.loads(body)
+                if not isinstance(result, dict):
+                    raise PaymentError('yookassa_invalid_response')
+                return result
+        except HTTPError as exc:
+            raise PaymentError(f'yookassa_http_{exc.code}') from None
+        except (URLError, TimeoutError, OSError):
+            raise PaymentError('yookassa_unavailable') from None
+        except (ValueError, UnicodeError):
+            raise PaymentError('yookassa_invalid_response') from None
+    def create_payment(self, order, invoice):
+        payload = {'amount': {'value': format(order.amount, '.2f'), 'currency': order.currency},
+                   'capture': True, 'confirmation': {'type': 'redirect', 'return_url': invoice.return_url},
+                   'description': order.product_title[:128], 'metadata': {'order_id': str(order.pk)}}
+        return self.request('POST', 'payments', payload, invoice.idempotence_key)
+    def retrieve_payment(self, payment_id):
+        if not valid_payment_id(payment_id):
+            raise PaymentError('invalid_payment_id')
+        return self.request('GET', 'payments/' + payment_id)
+    def retrieve_refund(self, refund_id):
+        if not valid_payment_id(refund_id):
+            raise PaymentError('invalid_refund_id')
+        return self.request('GET', 'refunds/' + refund_id)
 
 def get_provider():
-    # Historical provider values stay in Order; every NEW checkout uses Robokassa.
-    return Robokassa()
+    return YooKassa()

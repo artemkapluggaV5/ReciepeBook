@@ -17,12 +17,13 @@ for line in lines:
     if line.strip() and not line.lstrip().startswith('#') and '=' in line:
         key, value = line.split('=', 1)
         values[key.strip()] = value.strip().strip(chr(34) + chr(39))
-prefix = 'ROBOKASSA_' + ('TEST_' if args.mode == 'test' else '')
-required = ['ROBOKASSA_MERCHANT_LOGIN', prefix + 'PASSWORD1', prefix + 'PASSWORD2']
+required = ['YOOKASSA_SHOP_ID', 'YOOKASSA_SECRET_KEY']
 missing = [key for key in required if not values.get(key) or values[key].startswith('[')]
 if missing:
     raise SystemExit('Fill these settings locally in .env first (do not paste secrets in chat): ' + ', '.join(missing))
-updates = {'SALES_ENABLED': 'True', 'ROBOKASSA_TEST_MODE': str(args.mode == 'test')}
+if values['YOOKASSA_SECRET_KEY'].startswith('test_') != (args.mode == 'test'):
+    raise SystemExit('Key type does not match requested mode; file unchanged.')
+updates = {'SALES_ENABLED': 'True', 'YOOKASSA_TEST_MODE': str(args.mode == 'test')}
 output = []
 seen = set()
 for line in lines:

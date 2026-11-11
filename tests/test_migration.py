@@ -5,7 +5,7 @@ from django.db.migrations.executor import MigrationExecutor
 from django.test import TransactionTestCase
 from django.utils import timezone
 
-class RobokassaMigrationTests(TransactionTestCase):
+class HistoricalMigrationTests(TransactionTestCase):
     def test_upgrade_preserves_legacy_paid_order_customer_and_token(self):
         executor = MigrationExecutor(connection)
         executor.migrate([('payments', '0001_initial'), ('orders', '0002_alter_order_delivery_status')])
@@ -25,8 +25,8 @@ class RobokassaMigrationTests(TransactionTestCase):
             executor = MigrationExecutor(connection)
             executor.migrate(executor.loader.graph.leaf_nodes())
         from orders.models import Order as CurrentOrder
-        from payments.models import RobokassaInvoice
+        from payments.models import LegacyInvoice
         saved = CurrentOrder.objects.get(pk=order.pk)
         self.assertEqual({field:getattr(saved,field) for field in snapshot},snapshot)
         self.assertNotIn('email', [f.name for f in CurrentOrder._meta.fields])
-        self.assertFalse(RobokassaInvoice.objects.filter(order=saved).exists())
+        self.assertFalse(LegacyInvoice.objects.filter(order=saved).exists())

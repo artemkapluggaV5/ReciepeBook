@@ -21,10 +21,10 @@
       {% endif %}
       </div>
     </div>
-    {% if order.robokassa_invoice.test_mode %}<p class="test-notice">Тестовый платёж Робокассы.</p>{% endif %}
+    {% if order.yookassa_invoice.test_mode %}<p class="test-notice">Тестовый платёж ЮKassa.</p>{% endif %}
   {% elif order.status == 'pending' %}
     <h1>Проверяем оплату.</h1>
-    <p role="status" id="payment-wait">Ждём подтверждение от Робокассы. Кнопка скачивания появится автоматически. Если деньги списались, повторно платить не нужно.</p>
+    <p role="status" id="payment-wait">Ждём подтверждение от ЮKassa. Кнопка скачивания появится автоматически. Если деньги списались, повторно платить не нужно.</p>
     <a class="button" href="{% url 'order-status' order.pk %}">Обновить статус {% icon 'refresh' %}</a>
   {% elif order.status == 'refunded' %}
     <h1>Возврат зарегистрирован.</h1><p>Доступ к сборнику по этому заказу закрыт.</p>

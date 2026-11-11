@@ -1,24 +1,19 @@
+from datetime import timedelta
 from django.conf import settings
+from django.core import signing
 from django.db import transaction
+from django.urls import reverse
 from django.utils import timezone
-from payments.providers import get_provider, password, PaymentError
+from payments.models import YooKassaInvoice
+from payments.providers import get_provider, configured, confirmation_url, RETURN_SALT, PaymentError
+from payments.services import validate_payment, apply_payment
 from .models import Order
 
+
 def can_sell(product):
-    if not settings.SALES_ENABLED:
-        return False
-    try:
-        password(1, settings.ROBOKASSA_TEST_MODE)
-        password(2, settings.ROBOKASSA_TEST_MODE)
-    except PaymentError:
-        return False
-    # SALES_ENABLED is the owner's explicit operational switch. Legal/fiscal
-    # review flags belong to check_launch, not a second hidden checkout switch.
-    if not settings.ROBOKASSA_MERCHANT_LOGIN or settings.ROBOKASSA_CURRENCY != product.currency:
-        return False
-    if not settings.ROBOKASSA_TEST_MODE and product.is_demo:
-        return False
-    return product.currency == 'RUB'
+    return (settings.SALES_ENABLED and configured() and product.currency == 'RUB'
+            and (settings.YOOKASSA_TEST_MODE or not product.is_demo))
+
 
 def create_checkout(product, key):
     if not can_sell(product):
@@ -33,23 +28,35 @@ def create_checkout(product, key):
         'amount': product.price, 'currency': product.currency, 'provider': provider.name,
         'legal_version': settings.LEGAL_VERSION, 'consent_at': timezone.now(),
     })
+    # Commit the exact request identity BEFORE HTTP: timeout or process failure
+    # must retry the identical payload/key, including its signed return URL.
     with transaction.atomic():
         order = Order.objects.select_for_update().get(pk=order.pk)
         if order.product_id != product.pk or order.provider != provider.name:
             raise PaymentError('request_conflict')
-        if order.status in [Order.Status.PAID, Order.Status.REFUNDED]:
-            return order, None
-        invoice = getattr(order, 'robokassa_invoice', None)
-        if invoice and invoice.test_mode != settings.ROBOKASSA_TEST_MODE:
-            raise PaymentError('checkout_mode_changed')
-        if invoice and (invoice.merchant_login != settings.ROBOKASSA_MERCHANT_LOGIN
-                        or invoice.hash_algorithm != settings.ROBOKASSA_HASH_ALGORITHM):
+        invoice, _ = YooKassaInvoice.objects.get_or_create(order=order, defaults={
+            'shop_id': settings.YOOKASSA_SHOP_ID, 'test_mode': settings.YOOKASSA_TEST_MODE,
+            'idempotence_key': order.request_key,
+            'return_url': settings.SITE_URL + reverse('yookassa-return') + '?token=' +
+                          signing.dumps(str(order.pk), salt=RETURN_SALT),
+        })
+        if invoice.test_mode != settings.YOOKASSA_TEST_MODE or invoice.shop_id != settings.YOOKASSA_SHOP_ID:
             raise PaymentError('checkout_configuration_changed')
-        # Regenerate the signature with the current password on every retry.
-        # The provider reuses the same invoice; no remote charge is initiated here.
-        # Stable local InvId: no remote creation request or external cache window.
-        result = provider.create_payment(order)
-        order.provider_payment_id = result.payment_id
-        order.checkout_url = result.url
+    with transaction.atomic():
+        order = Order.objects.select_for_update().get(pk=order.pk)
+        if order.status != Order.Status.PENDING:
+            return order, None
+        if order.provider_payment_id:
+            return order, order.checkout_url or None
+        # YooKassa guarantees idempotence for 24 hours. Never re-charge an
+        # ambiguous older attempt after that window has elapsed.
+        if timezone.now() - invoice.created_at > timedelta(hours=23):
+            raise PaymentError('checkout_expired_contact_support')
+        payment = provider.create_payment(order, invoice)
+        validate_payment(order, invoice, payment, creating=True)
+        url = confirmation_url(payment) if payment['status'] == 'pending' else ''
+        order.provider_payment_id = payment['id']
+        order.checkout_url = url
         order.save(update_fields=['provider_payment_id', 'checkout_url', 'updated_at'])
-    return order, order.checkout_url
+        apply_payment(order, payment)
+    return order, url or None

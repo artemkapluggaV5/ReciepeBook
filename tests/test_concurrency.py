@@ -10,15 +10,14 @@ from django.test import TransactionTestCase, override_settings, skipUnlessDBFeat
 from django.utils import timezone
 from delivery.services import prepare_download
 from orders.models import Order
-from payments.models import PaymentEvent, RobokassaInvoice
-from payments.services import process_result
-from payments.providers import digest, signed_fields, user_fields
+from payments.models import PaymentEvent, YooKassaInvoice
+from payments.services import apply_payment
+from payments.providers import YooKassa
+from django.db import transaction
 from orders.services import create_checkout
 from products.models import Product
 
-@override_settings(ROBOKASSA_MERCHANT_LOGIN='concurrency-test-shop', ROBOKASSA_TEST_MODE=True,
-                   ROBOKASSA_TEST_PASSWORD1='concurrency-unit-password1', ROBOKASSA_TEST_PASSWORD2='concurrency-unit-test-only',
-                   EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+@override_settings(YOOKASSA_SHOP_ID='123', YOOKASSA_SECRET_KEY='test_concurrency', YOOKASSA_TEST_MODE=True)
 class PostgreSQLConcurrencyTests(TransactionTestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -29,10 +28,10 @@ class PostgreSQLConcurrencyTests(TransactionTestCase):
         (Path(self.temp.name)/'book.pdf').write_bytes(b'%PDF-1.4\nfixture')
         product = Product.objects.create(title='Test', description='Test', price=Decimal('890'), pdf_name='book.pdf')
         self.order = Order.objects.create(request_key=uuid.uuid4(), product=product,
-            product_title='Test', amount=Decimal('890'), currency='RUB', provider='robokassa',
+            product_title='Test', amount=Decimal('890'), currency='RUB', provider='yookassa',
             status='paid', consent_at=timezone.now(), legal_version='test')
-        self.invoice = RobokassaInvoice.objects.create(order=self.order, merchant_login='test-only', test_mode=True)
-        self.order.provider_payment_id = str(self.invoice.pk)
+        self.invoice = YooKassaInvoice.objects.create(order=self.order, shop_id='123', test_mode=True, idempotence_key=self.order.request_key)
+        self.order.provider_payment_id = str(uuid.uuid4())
         self.order.save()
 
     def run_parallel(self, action):
@@ -55,20 +54,28 @@ class PostgreSQLConcurrencyTests(TransactionTestCase):
 
     @skipUnlessDBFeature('has_select_for_update')
     def test_parallel_duplicate_events_are_idempotent(self):
-        fields = user_fields(self.invoice)
-        event = {'InvId':str(self.invoice.pk), 'OutSum':'890.000000', **fields}
-        event['SignatureValue'] = digest([event['OutSum'],event['InvId'],'concurrency-unit-test-only',*signed_fields(fields)], 'SHA256')
-        self.run_parallel(lambda: process_result(event))
+        def settle():
+            with transaction.atomic():
+                order = Order.objects.select_for_update().get(pk=self.order.pk)
+                apply_payment(order, {'id':order.provider_payment_id,'status':'succeeded'})
+        self.run_parallel(settle)
         self.assertEqual(PaymentEvent.objects.count(), 1)
         self.order.refresh_from_db()
         self.assertEqual(self.order.status, 'paid')
 
     @skipUnlessDBFeature('has_select_for_update')
-    def test_parallel_checkout_creates_one_order_and_numeric_invoice(self):
+    def test_parallel_checkout_creates_one_remote_payment(self):
         key = uuid.uuid4()
-        with patch('orders.services.can_sell', return_value=True):
+        payment_id = str(uuid.uuid4())
+        def create(order, invoice):
+            return {'id':payment_id, 'status':'pending', 'paid':False, 'test':True,
+                    'recipient':{'account_id':'123'}, 'amount':{'value':'890.00','currency':'RUB'},
+                    'metadata':{'order_id':str(order.pk)},
+                    'confirmation':{'type':'redirect','confirmation_url':'https://yoomoney.ru/checkout/test'}}
+        with patch('orders.services.can_sell', return_value=True), patch.object(YooKassa,'create_payment',side_effect=create) as api:
             results = self.run_parallel(lambda: create_checkout(self.order.product, key))
+        api.assert_called_once()
         self.assertEqual(results[0][0].pk, results[1][0].pk)
         self.assertEqual(results[0][1], results[1][1])
         self.assertEqual(Order.objects.filter(request_key=key).count(), 1)
-        self.assertEqual(RobokassaInvoice.objects.filter(order__request_key=key).count(), 1)
+        self.assertEqual(YooKassaInvoice.objects.filter(order__request_key=key).count(), 1)

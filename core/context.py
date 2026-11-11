@@ -5,6 +5,6 @@ def site_context(request):
             'seller_display_name': settings.SELLER_DISPLAY_NAME,
             'seller_inn': settings.SELLER_INN, 'seller_ogrn': settings.SELLER_OGRN,
             'sales_enabled': settings.SALES_ENABLED,
-            'payment_test_mode': settings.ROBOKASSA_TEST_MODE,
+            'payment_test_mode': settings.YOOKASSA_TEST_MODE,
             'telegram_username': settings.TELEGRAM_USERNAME,
             'telegram_support_username': settings.TELEGRAM_SUPPORT_USERNAME}

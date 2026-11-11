@@ -49,7 +49,16 @@ def status(request, order_id):
     if str(order_id) not in request.session.get('orders', []):
         return render(request, 'message.html', {'title': 'Доступ к заказу ограничен',
             'text': 'Откройте страницу в том браузере, где оформляли покупку. Если доступ потерян, сообщите поддержке номер заказа и данные платежа.'}, status=403)
-    order = get_object_or_404(Order.objects.select_related('product', 'robokassa_invoice'), pk=order_id)
+    order = get_object_or_404(Order.objects.select_related('product', 'yookassa_invoice'), pk=order_id)
+    if order.status == Order.Status.PENDING and request.method != 'HEAD':
+        from payments.services import sync_payment
+        try:
+            sync_payment(order.pk)
+        except PaymentError as exc:
+            logger.warning('payment_status_error code=%s', str(exc))
+        order.refresh_from_db()
+    if order.status == Order.Status.CANCELLED and request.headers.get('Accept') != 'application/json':
+        return redirect('payment-fail')
     token, issue = prepare_download(order.pk) if order.status == Order.Status.PAID else (None, '')
     if request.headers.get('Accept') == 'application/json':
         return JsonResponse({'status': order.status, 'ready': bool(token), 'issue': issue})

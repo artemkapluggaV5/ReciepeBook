@@ -8,22 +8,21 @@ from .models import Order
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
     list_display = ['id', 'provider', 'invoice_number', 'payment_mode', 'amount', 'status', 'download_count', 'created_at']
-    list_filter = ['status', 'provider', 'robokassa_invoice__test_mode', 'created_at']
+    list_filter = ['status', 'provider', 'yookassa_invoice__test_mode', 'created_at']
     search_fields = ['id', 'provider_payment_id', 'transaction_id']
     readonly_fields = [f.name for f in Order._meta.fields]
     actions = ['download_links', 'renew']
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('robokassa_invoice')
+        return super().get_queryset(request).select_related('yookassa_invoice')
 
-    @admin.display(description='Robokassa InvId')
+    @admin.display(description='ID платежа')
     def invoice_number(self, obj):
-        invoice = getattr(obj, 'robokassa_invoice', None)
-        return invoice.pk if invoice else '—'
+        return obj.provider_payment_id or '—'
 
     @admin.display(description='Режим оплаты')
     def payment_mode(self, obj):
-        invoice = getattr(obj, 'robokassa_invoice', None)
+        invoice = getattr(obj, 'yookassa_invoice', None)
         return ('Тестовый' if invoice.test_mode else 'Боевой') if invoice else 'Исторический заказ'
 
     def has_add_permission(self, request):
