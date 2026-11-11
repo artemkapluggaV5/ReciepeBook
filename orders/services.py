@@ -2,6 +2,7 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from core.models import LegalPage
+from delivery.backends import production_email_ready
 from payments.providers import get_provider, password, PaymentError
 from .models import Order
 
@@ -16,9 +17,7 @@ def can_sell(product):
     sandbox = settings.DEBUG and settings.ROBOKASSA_TEST_MODE
     if sandbox and settings.ROBOKASSA_MERCHANT_LOGIN:
         return True
-    email_ready = (settings.EMAIL_BACKEND == 'django.core.mail.backends.smtp.EmailBackend'
-                   and bool(settings.EMAIL_HOST and settings.EMAIL_HOST_USER)
-                   and settings.EMAIL_USE_TLS != settings.EMAIL_USE_SSL)
+    email_ready = production_email_ready()
     identity_ready = ('[' not in settings.MERCHANT_NAME and '[' not in settings.MERCHANT_DETAILS
                       and not settings.CONTACT_EMAIL.endswith('.invalid'))
     return (settings.SALES_ENABLED and settings.LEGAL_READY and settings.FISCALIZATION_READY

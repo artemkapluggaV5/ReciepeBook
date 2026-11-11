@@ -493,6 +493,38 @@ class ShopTests(TestCase):
         self.product.save()
         LegalPage.objects.update(is_draft=False)
         self.assertTrue(can_sell(self.product))
+        with override_settings(EMAIL_BACKEND='delivery.backends.UnisenderEmailBackend',
+                               UNISENDER_API_KEY='test-only-key', SITE_URL='https://example.test',
+                               DEFAULT_FROM_EMAIL='book@example.test'):
+            self.assertTrue(can_sell(self.product))
+            with override_settings(UNISENDER_API_KEY=''):
+                self.assertFalse(can_sell(self.product))
+
+    @override_settings(EMAIL_BACKEND='delivery.backends.UnisenderEmailBackend', UNISENDER_API_KEY='test-only-key',
+                       UNISENDER_API_URL='https://go2.unisender.ru/ru/transactional/api/v1')
+    @patch('delivery.backends.api_open')
+    def test_unisender_delivery_failure_retry_and_duplicate_prevention(self, api):
+        import json
+        from unittest.mock import MagicMock
+        order = self.order(status='paid')
+        api.side_effect = TimeoutError()
+        self.assertFalse(deliver_order(order.pk))
+        order.refresh_from_db()
+        self.assertEqual(order.delivery_status, 'failed')
+        self.assertEqual(order.delivery_attempts, 1)
+        response = MagicMock()
+        response.__enter__.return_value = response
+        response.status = 200
+        response.read.return_value = json.dumps({'status': 'success', 'job_id': 'unit-test-job',
+                                               'emails': [order.email]}).encode()
+        api.side_effect = None
+        api.return_value = response
+        self.assertTrue(deliver_order(order.pk))
+        self.assertFalse(deliver_order(order.pk))
+        order.refresh_from_db()
+        self.assertEqual(order.delivery_status, 'sent')
+        self.assertEqual(order.delivery_attempts, 2)
+        self.assertEqual(api.call_count, 2)
 
     def test_inline_icons_have_accessible_geometry_and_no_font_dependency(self):
         response = self.client.get('/')

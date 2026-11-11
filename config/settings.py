@@ -110,6 +110,8 @@ EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
 EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
 EMAIL_USE_SSL = env.bool('EMAIL_USE_SSL', default=False)
 EMAIL_TIMEOUT = 10
+UNISENDER_API_KEY = env('UNISENDER_API_KEY', default='')
+UNISENDER_API_URL = env('UNISENDER_API_URL', default='https://go2.unisender.ru/ru/transactional/api/v1')
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='Маришкины рецепты <marishkinirecepti@mail.ru>')
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 SESSION_COOKIE_HTTPONLY = True
