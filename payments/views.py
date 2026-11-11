@@ -19,13 +19,15 @@ def widget_check(request):
 
 def parameters(request):
     if request.method == 'POST':
-        if request.content_type != 'application/x-www-form-urlencoded' or request.GET:
-            raise RejectedEvent
+        if request.content_type != 'application/x-www-form-urlencoded':
+            raise RejectedEvent('content_type')
+        if request.GET:
+            raise RejectedEvent('mixed_sources')
         event = QueryDict(request.body, encoding='utf-8')
     else:
         event = request.GET
     if any(len(values) != 1 for _, values in event.lists()):
-        raise RejectedEvent
+        raise RejectedEvent('duplicate_parameters')
     return event
 
 # Server-to-server callback. Robokassa's documented signature replaces CSRF ONLY here.
@@ -35,12 +37,16 @@ def parameters(request):
 def result(request):
     try:
         number = process_result(parameters(request))
-    except InvalidSignature:
-        logger.warning('robokassa_result_rejected reason=signature')
+    except InvalidSignature as exc:
+        logger.warning('robokassa_result_rejected reason=%s', exc.code)
         return HttpResponse('Invalid signature', status=403, content_type='text/plain')
-    except (RejectedEvent, IntegrityError, UnicodeDecodeError):
-        logger.warning('robokassa_result_rejected reason=parameters')
+    except RejectedEvent as exc:
+        logger.warning('robokassa_result_rejected reason=%s', exc.code)
         return HttpResponse('Invalid payment', status=400, content_type='text/plain')
+    except (IntegrityError, UnicodeDecodeError):
+        logger.warning('robokassa_result_rejected reason=database_or_encoding')
+        return HttpResponse('Invalid payment', status=400, content_type='text/plain')
+    logger.info('robokassa_result_accepted invoice=%s', number)
     return HttpResponse(f'OK{number}', content_type='text/plain')
 
 # Robokassa may return via cross-site POST without a SameSite=Lax cookie.

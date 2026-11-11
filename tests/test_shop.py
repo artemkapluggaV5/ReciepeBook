@@ -1,4 +1,5 @@
 import hashlib
+from io import StringIO
 import tempfile
 import uuid
 from datetime import timedelta
@@ -666,3 +667,33 @@ class ShopTests(TestCase):
         self.assertEqual(first.pk, second.pk)
         self.assertEqual(first_url, second_url)
         self.assertEqual(RobokassaInvoice.objects.count(), 1)
+
+    def test_payment_diagnosis_is_read_only_and_does_not_disclose_credentials(self):
+        order = self.order()
+        output = StringIO()
+        call_command('diagnose_payment', str(order.pk), stdout=output)
+        report = output.getvalue()
+        self.assertIn('Order status: pending', report)
+        self.assertIn('Authenticated payment events: 0', report)
+        self.assertIn('Private PDF: available', report)
+        self.assertIn('/payments/robokassa/result/', report)
+        self.assertNotIn(settings.ROBOKASSA_TEST_PASSWORD2, report)
+        self.assertNotIn(settings.ROBOKASSA_TEST_PASSWORD1, report)
+        order.refresh_from_db()
+        self.assertEqual(order.status, 'pending')
+        self.assertFalse(PaymentEvent.objects.exists())
+
+    def test_webhook_diagnostic_logs_distinguish_errors_without_payload(self):
+        with self.assertLogs('payments.views', level='WARNING') as captured:
+            self.client.get(reverse('robokassa-result'))
+        self.assertIn('reason=invoice_missing', '\n'.join(captured.output))
+        order = self.order()
+        event = self.signed(order, OutSum='1.00')
+        event['EMail'] = 'private-customer@example.test'
+        with self.assertLogs('payments.views', level='WARNING') as captured:
+            response = self.callback(event)
+        self.assertEqual(response.status_code, 400)
+        logs = '\n'.join(captured.output)
+        self.assertIn('reason=amount_mismatch', logs)
+        self.assertNotIn(event['EMail'], logs)
+        self.assertNotIn(event['SignatureValue'], logs)
