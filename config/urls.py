@@ -4,7 +4,7 @@ from django.contrib import admin
 from django.urls import path
 from core import views
 from orders.views import checkout, status
-from payments.views import result, success, fail
+from payments.views import result, success, fail, widget_check
 from delivery.views import download
 
 urlpatterns = [
@@ -14,6 +14,7 @@ urlpatterns = [
     path('payments/robokassa/result/', result, name='robokassa-result'),
     path('payments/robokassa/success/', success, name='robokassa-success'),
     path('payments/robokassa/fail/', fail, name='robokassa-fail'),
+    path('payments/robokassa/widget-check/', widget_check, name='robokassa-widget-check'),
     path('download/<str:token>/', download, name='download'),
     path('robots.txt', views.robots, name='robots'), path('sitemap.xml', views.sitemap, name='sitemap'),
 ]

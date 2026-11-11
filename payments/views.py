@@ -10,6 +10,13 @@ from .services import process_result, validate_event, RejectedEvent, InvalidSign
 
 logger = logging.getLogger(__name__)
 
+@require_http_methods(['GET', 'HEAD'])
+def widget_check(request):
+    # This cabinet-created invoice has no local order binding.
+    # Never grant downloads or relax ResultURL verification for it.
+    return render(request, 'payment_widget_check.html')
+
+
 def parameters(request):
     if request.method == 'POST':
         if request.content_type != 'application/x-www-form-urlencoded' or request.GET:

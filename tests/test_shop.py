@@ -644,6 +644,21 @@ class ShopTests(TestCase):
                 self.assertEqual(order.robokassa_invoice.hash_algorithm, 'SHA256')
                 self.assertEqual(order.robokassa_invoice.merchant_login, 'unit-test-shop')
 
+    def test_official_widget_has_isolated_csp_and_does_not_pay_orders(self):
+        order = self.order()
+        response = self.client.get(reverse('robokassa-widget-check'))
+        self.assertContains(response, 'FormMS.js?EncodedInvoiceId=qtjdnqU1EkerxLp-ACPTCg')
+        self.assertContains(response, 'автоматическое скачивание сборника не подключено')
+        self.assertNotContains(response, '/download/')
+        self.assertIn("script-src 'self' https://auth.robokassa.ru;", response.headers['Content-Security-Policy'])
+        self.assertIn('frame-src https://auth.robokassa.ru', response.headers['Content-Security-Policy'])
+        self.assertIn('no-store', response.headers['Cache-Control'])
+        self.assertNotIn("script-src 'self' https://auth.robokassa.ru;", self.client.get('/').headers['Content-Security-Policy'])
+        order.refresh_from_db()
+        self.assertEqual(order.status, 'pending')
+        self.assertEqual(Order.objects.count(), 1)
+        self.assertFalse(PaymentEvent.objects.exists())
+
     def test_repeated_checkout_without_configuration_change_keeps_same_invoice_and_url(self):
         key = uuid.uuid4()
         first, first_url = create_checkout(self.product, key)

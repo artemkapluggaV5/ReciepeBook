@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}Проверка готового счёта — {{ site_name }}{% endblock %}
+{% block content %}
+<section class="wrap message-page">
+  <p class="eyebrow">Робокасса</p>
+  <h1>Проверка готового счёта</h1>
+  <p>Кнопка ниже открывает счёт из кабинета Робокассы. Перед оплатой проверьте сумму и режим на её странице.</p>
+  <div aria-label="Кнопка оплаты Робокассы">
+    <script type="text/javascript" src="https://auth.robokassa.ru/Merchant/PaymentForm/FormMS.js?EncodedInvoiceId=qtjdnqU1EkerxLp-ACPTCg"></script>
+  </div>
+  <p><a href="https://auth.robokassa.ru/merchant/Invoice/qtjdnqU1EkerxLp-ACPTCg" rel="noreferrer">Открыть счёт, если кнопка не появилась</a></p>
+  <p>Для этого отдельного счёта автоматическое скачивание сборника не подключено.</p>
+  <p><a href="/">На главную</a></p>
+</section>
+{% endblock %}
