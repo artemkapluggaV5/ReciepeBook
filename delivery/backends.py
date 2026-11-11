@@ -14,6 +14,23 @@ from django.core.mail.backends.base import BaseEmailBackend
 logger = logging.getLogger(__name__)
 UNISENDER_BACKEND = 'delivery.backends.UnisenderEmailBackend'
 API_URLS = {f'https://{host}.unisender.ru/ru/transactional/api/v1' for host in ('goapi', 'go1', 'go2')}
+API_ERROR_HINTS = {
+    101: 'API key missing', 102: 'API key invalid', 105: 'Enable API access in account settings',
+    106: 'Account inactive; contact Unisender support', 215: 'Sending disabled; contact Unisender support',
+    206: 'Verify sender domain', 1003: 'Verify sender domain', 1007: 'Verify sender domain',
+    901: 'Daily sending limit reached', 902: 'Free daily sending limit reached',
+    903: 'Free plan permits only own domains or confirmed recipients; confirm recipient or change plan',
+    904: 'Insufficient balance; check billing', 905: 'Plan sending limit reached',
+}
+
+
+def safe_api_error(http_status, result):
+    code = result.get('code') if isinstance(result, dict) else None
+    # Provider error text can echo addresses or credentials. Expose only a bounded numeric code.
+    if type(code) is not int or not 0 <= code <= 99999:
+        return f'Unisender HTTP {http_status}; check sending log in cabinet'
+    hint = API_ERROR_HINTS.get(code, 'Check sending log in Unisender cabinet')
+    return f'Unisender HTTP {http_status}; API {code}: {hint}'
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -83,10 +100,20 @@ class UnisenderEmailBackend(BaseEmailBackend):
                 result = json.loads(raw)
         except HTTPError as exc:
             code = exc.code
-            exc.close()
-            raise RuntimeError(f'Unisender HTTP {code}; check account, domain and tariff') from None
+            details = None
+            try:
+                raw = exc.read(65537)
+                if len(raw) <= 65536:
+                    details = json.loads(raw)
+            except (OSError, ValueError):
+                pass
+            finally:
+                exc.close()
+            raise RuntimeError(safe_api_error(code, details)) from None
         except (URLError, OSError, ValueError):
             raise RuntimeError('Unisender connection or response error; retry later') from None
+        if isinstance(result, dict) and result.get('status') == 'error':
+            raise RuntimeError(safe_api_error(200, result))
         if (not isinstance(result, dict) or result.get('status') != 'success'
                 or not result.get('job_id') or result.get('failed_emails')
                 or ('emails' in result and recipient not in result['emails'])):

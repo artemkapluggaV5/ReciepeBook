@@ -52,7 +52,7 @@ class UnisenderTests(SimpleTestCase):
         for result in [
             {'status': 'success', 'job_id': 'job-test', 'failed_emails': {'buyer@example.test': 'blocked'}},
             {'status': 'success', 'job_id': 'job-test', 'emails': []},
-            {'status': 'success'}, {'status': 'error', 'code': 204}, [],
+            {'status': 'success'}, [],
         ]:
             with self.subTest(result=result):
                 api.return_value = self.response(result)
@@ -71,6 +71,23 @@ class UnisenderTests(SimpleTestCase):
                 self.assertNotIn('test-only', str(error.exception))
         api.side_effect = TimeoutError()
         self.assertEqual(self.message().send(fail_silently=True), 0)
+
+    @patch('delivery.backends.api_open')
+    def test_http_error_exposes_only_numeric_code_and_fixed_hint(self, api):
+        for code in (105, 903):
+            with self.subTest(code=code):
+                body = json.dumps({'status': 'error', 'code': code,
+                                   'message': 'private-address@example.test test-only-key'}).encode()
+                api.side_effect = HTTPError('https://go2.unisender.ru', 403, '', {}, BytesIO(body))
+                with self.assertRaises(RuntimeError) as error:
+                    self.message().send()
+                self.assertIn(f'HTTP 403; API {code}:', str(error.exception))
+                self.assertNotIn('private-address', str(error.exception))
+                self.assertNotIn('test-only-key', str(error.exception))
+        api.side_effect = None
+        api.return_value = self.response({'status': 'error', 'code': 204, 'message': 'private-data'})
+        with self.assertRaisesMessage(RuntimeError, 'API 204'):
+            self.message().send()
 
     @patch('delivery.backends.api_open')
     def test_invalid_json_is_failure(self, api):
