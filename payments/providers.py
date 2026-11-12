@@ -115,6 +115,8 @@ class YooKassa:
         payload = {'amount': {'value': format(order.amount, '.2f'), 'currency': order.currency},
                    'capture': True, 'confirmation': {'type': 'redirect', 'return_url': invoice.return_url},
                    'description': order.product_title[:128], 'metadata': {'order_id': str(order.pk)}}
+        if invoice.receipt:
+            payload['receipt'] = invoice.receipt
         return self.request('POST', 'payments', payload, invoice.idempotence_key)
     def retrieve_payment(self, payment_id):
         if not valid_payment_id(payment_id):

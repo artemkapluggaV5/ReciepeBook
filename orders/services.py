@@ -7,6 +7,7 @@ from django.utils import timezone
 from payments.models import YooKassaInvoice
 from payments.providers import get_provider, configured, confirmation_url, RETURN_SALT, PaymentError
 from payments.services import validate_payment, apply_payment
+from payments.receipts import receipts_enabled, build_receipt
 from .models import Order
 
 
@@ -15,7 +16,7 @@ def can_sell(product):
             and (settings.YOOKASSA_TEST_MODE or not product.is_demo))
 
 
-def create_checkout(product, key):
+def create_checkout(product, key, receipt_email=''):
     if not can_sell(product):
         raise PaymentError('sales_disabled')
     try:
@@ -39,9 +40,13 @@ def create_checkout(product, key):
             'idempotence_key': order.request_key,
             'return_url': settings.SITE_URL + reverse('yookassa-return') + '?token=' +
                           signing.dumps(str(order.pk), salt=RETURN_SALT),
+            'receipt': build_receipt(order, receipt_email) if receipts_enabled() else {},
         })
         if invoice.test_mode != settings.YOOKASSA_TEST_MODE or invoice.shop_id != settings.YOOKASSA_SHOP_ID:
             raise PaymentError('checkout_configuration_changed')
+        if receipts_enabled() and not invoice.receipt:
+            # Never change an ambiguous pre-upgrade request under the same key.
+            raise PaymentError('checkout_receipt_upgrade_required')
     with transaction.atomic():
         order = Order.objects.select_for_update().get(pk=order.pk)
         if order.status != Order.Status.PENDING:

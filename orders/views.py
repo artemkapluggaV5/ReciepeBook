@@ -32,11 +32,14 @@ def checkout(request):
     if not product:
         return HttpResponse('Сборник временно недоступен.', status=503)
     if not form.is_valid():
-        return render(request, 'landing.html', {'product': product, 'form': form, 'purchase_error': 'Примите условия оферты и повторите попытку.'}, status=400)
+        message = ('Укажите корректную почту для чека и примите условия оферты.'
+                   if 'receipt_email' in form.errors else 'Примите условия оферты и повторите попытку.')
+        return render(request, 'landing.html', {'product': product, 'form': form, 'purchase_error': message}, status=400)
     if str(form.cleaned_data['request_key']) != request.session.get('checkout_key'):
         return render(request, 'message.html', {'title': 'Обновите страницу', 'text': 'Откройте главную страницу и отправьте форму снова.'}, status=400)
     try:
-        order, url = create_checkout(product, form.cleaned_data['request_key'])
+        order, url = create_checkout(product, form.cleaned_data['request_key'],
+                                     receipt_email=form.cleaned_data.get('receipt_email', ''))
     except PaymentError as exc:
         logger.warning('checkout_error code=%s', str(exc))
         return render(request, 'landing.html', {'product': product, 'form': form, 'purchase_error': 'Оплата сейчас недоступна. Деньги на сайте не списывались. Попробуйте позже или напишите в поддержку.'}, status=503)

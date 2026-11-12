@@ -26,3 +26,4 @@ class YooKassaInvoice(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     return_url = models.CharField(max_length=600, blank=True)
     last_checked_at = models.DateTimeField(null=True, blank=True)
+    receipt = models.JSONField(default=dict, blank=True)

@@ -18,7 +18,10 @@ class LegacyInvoiceAdmin(ReadOnlyAdmin):
 class YooKassaInvoiceAdmin(ReadOnlyAdmin):
     list_display = ['order', 'shop_id', 'test_mode', 'last_checked_at', 'created_at']
     search_fields = ['order__id']
-    exclude = ['return_url']
+    exclude = ['return_url', 'receipt']
+
+    def get_readonly_fields(self, request, obj=None):
+        return [name for name in super().get_readonly_fields(request, obj) if name not in self.exclude]
 
 @admin.register(PaymentEvent)
 class EventAdmin(ReadOnlyAdmin):

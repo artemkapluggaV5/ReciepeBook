@@ -9,6 +9,7 @@ from orders.forms import CheckoutForm
 from orders.models import Order
 from products.models import Product
 from .models import LegalPage
+from payments.receipts import receipts_enabled
 
 def csrf_failure(request, reason=''):
     return render(request, 'message.html', {'title': 'Обновите страницу', 'text': 'Защитный код формы устарел или запрос пришёл с другого сайта. Вернитесь на главную и отправьте форму снова.'}, status=403)
@@ -25,8 +26,10 @@ def landing(request):
         yookassa_invoice__isnull=False).exclude(
             yookassa_invoice__test_mode=settings.YOOKASSA_TEST_MODE,
             yookassa_invoice__shop_id=settings.YOOKASSA_SHOP_ID).exists()
-    if not old_key or complete or legacy or changed_configuration:
+    receipt_mode_changed = request.session.get('checkout_receipts') != receipts_enabled()
+    if not old_key or complete or legacy or changed_configuration or receipt_mode_changed:
         request.session['checkout_key'] = str(uuid.uuid4())
+        request.session['checkout_receipts'] = receipts_enabled()
     form = CheckoutForm(initial={'request_key': request.session['checkout_key']})
     return render(request, 'landing.html', {'product': product, 'form': form, 'payment_failed': request.session.pop('payment_failed', False)})
 

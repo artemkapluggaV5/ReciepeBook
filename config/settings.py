@@ -85,6 +85,9 @@ PAYMENT_PROVIDER = 'yookassa'
 YOOKASSA_SHOP_ID = env('YOOKASSA_SHOP_ID', default='')
 YOOKASSA_SECRET_KEY = env('YOOKASSA_SECRET_KEY', default='')
 YOOKASSA_TEST_MODE = env.bool('YOOKASSA_TEST_MODE', default=True)
+# Live sales include receipts. Owner confirmed: YooKassa receipts, no VAT.
+YOOKASSA_RECEIPTS_ENABLED = env.bool('YOOKASSA_RECEIPTS_ENABLED', default=False)
+YOOKASSA_VAT_CODE = env.int('YOOKASSA_VAT_CODE', default=1)
 DOWNLOAD_DAYS = env.int('DOWNLOAD_DAYS', default=30)
 DOWNLOAD_LIMIT = env.int('DOWNLOAD_LIMIT', default=20)
 # Outbound email is disabled, including stale SMTP/API values in an existing .env.
