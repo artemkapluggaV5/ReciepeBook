@@ -27,7 +27,9 @@ def landing(request):
             yookassa_invoice__test_mode=settings.YOOKASSA_TEST_MODE,
             yookassa_invoice__shop_id=settings.YOOKASSA_SHOP_ID).exists()
     receipt_mode_changed = request.session.get('checkout_receipts') != receipts_enabled()
-    if not old_key or complete or legacy or changed_configuration or receipt_mode_changed:
+    changed_product = old_key and Order.objects.filter(request_key=old_key).exclude(
+        product_id=product.pk, amount=product.price, currency=product.currency).exists()
+    if not old_key or complete or legacy or changed_configuration or receipt_mode_changed or changed_product:
         request.session['checkout_key'] = str(uuid.uuid4())
         request.session['checkout_receipts'] = receipts_enabled()
     form = CheckoutForm(initial={'request_key': request.session['checkout_key']})

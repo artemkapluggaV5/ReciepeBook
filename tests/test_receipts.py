@@ -106,3 +106,29 @@ class ReceiptTests(TestCase):
         with override_settings(YOOKASSA_TEST_MODE=True, YOOKASSA_SECRET_KEY='test_only',
                                YOOKASSA_RECEIPTS_ENABLED=True):
             self.assertContains(self.client.get('/'), 'name="receipt_email"')
+
+    def test_new_checkout_after_price_change_keeps_old_invoice_and_receipt(self):
+        self.client.get('/')
+        old_key = self.client.session['checkout_key']
+        with patch.object(YooKassa, 'request', side_effect=self.pending):
+            response = self.client.post('/checkout/', {'consent': 'on',
+                'request_key': old_key, 'receipt_email': 'buyer@example.test'})
+        self.assertEqual(response.status_code, 302)
+        old_order = Order.objects.get(request_key=old_key)
+        old_receipt = old_order.yookassa_invoice.receipt
+        self.product.price = Decimal('1.00')
+        self.product.save(update_fields=['price'])
+        self.client.get('/')
+        new_key = self.client.session['checkout_key']
+        self.assertNotEqual(old_key, new_key)
+        with patch.object(YooKassa, 'request', side_effect=self.pending) as api:
+            response = self.client.post('/checkout/', {'consent': 'on',
+                'request_key': new_key, 'receipt_email': 'buyer@example.test'})
+        self.assertEqual(response.status_code, 302)
+        payload = api.call_args.args[2]
+        self.assertEqual(payload['amount']['value'], '1.00')
+        self.assertEqual(payload['receipt']['items'][0]['amount']['value'], '1.00')
+        old_order.refresh_from_db()
+        self.assertEqual(old_order.amount, Decimal('1990.00'))
+        self.assertEqual(old_order.yookassa_invoice.receipt, old_receipt)
+        self.assertEqual(Order.objects.get(request_key=new_key).amount, Decimal('1.00'))
