@@ -110,4 +110,7 @@ footer{background:var(--cream);border-top:1px solid var(--line)}.footer-top{padd
 .download-book > img { display: block; width: 100%; height: auto; border-radius: 8px; box-shadow: 0 14px 35px rgba(34, 48, 38, .15); }
 .download-book h2 { margin: 0 0 16px; }
 .download-book .button { margin: 12px 0; }
+.order-reference { margin: 28px 0; padding: 20px 24px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); text-align: left; }
+.order-reference p + p { margin-top: 10px; font-size: 14px; }
+.order-reference span { overflow-wrap: anywhere; user-select: all; }
 @media (max-width: 600px) { .download-book { grid-template-columns: 1fr; gap: 24px; } .download-book > img { max-width: 230px; margin: 0 auto; } .download-book .button { width: 100%; } }
