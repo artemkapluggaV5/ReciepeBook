@@ -53,12 +53,12 @@ footer{background:var(--cream);border-top:1px solid var(--line)}.footer-top{padd
 .marina-letter{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:65px;border-top:1px solid var(--line);padding-top:32px}
 .marina-letter-copy p{font-size:16px;margin:0 0 16px;max-width:430px}
 .marina-wish{padding-left:10px;text-align:center;align-self:center}
-.marina-wish>p:first-child{font:26px/1.45 var(--serif);color:var(--ink);margin:0 0 20px}
+.marina-wish>.marina-newyear-wish{font:26px/1.45 var(--serif);color:var(--ink);margin:0 0 20px}
 .marina-wish .marina-signature{font:italic 34px/1.3 var(--serif);color:var(--accent);margin:0}
 .marina-signature span{display:block;font:13px/1.5 var(--sans);color:var(--muted);margin-bottom:7px}
 .marina-book-link{grid-column:1/-1;justify-self:center;margin-top:-10px}
-@media(max-width:850px){.marina-welcome{gap:30px}.marina-welcome h1{font-size:46px}.marina-welcome .welcome-copy>.welcome-lead{font-size:23px}.marina-welcome .welcome-copy>p:not(.cozy-kicker):not(.welcome-lead){font-size:15px}.marina-welcome .welcome-main{height:470px}.marina-welcome .welcome-inset{left:-12px;width:155px}.marina-welcome .welcome-inset img{height:115px}.marina-letter{gap:30px}.marina-wish>p:first-child{font-size:23px}}
-@media(max-width:600px){.marina-welcome{padding-top:32px;gap:28px}.marina-welcome h1{font-size:clamp(38px,10.5vw,52px);margin-bottom:24px}.marina-welcome .welcome-copy>.welcome-lead{font-size:24px}.marina-welcome .welcome-copy>p:not(.cozy-kicker):not(.welcome-lead){font-size:15px;max-width:360px}.marina-welcome .welcome-main{height:365px}.marina-welcome .welcome-visual{margin-top:4px}.marina-welcome .welcome-inset{left:2px;width:155px}.marina-letter{display:block;padding-top:28px;width:100%}.marina-letter-copy p{font-size:15px;text-align:center;max-width:360px;margin:0 auto 18px}.marina-wish{padding:22px 0 0}.marina-wish>p:first-child{font-size:25px}.marina-wish>p:first-child br{display:none}.marina-wish .marina-signature{font-size:35px}.marina-book-link{align-self:center;margin-top:2px}}
+@media(max-width:850px){.marina-welcome{gap:30px}.marina-welcome h1{font-size:46px}.marina-welcome .welcome-copy>.welcome-lead{font-size:23px}.marina-welcome .welcome-copy>p:not(.cozy-kicker):not(.welcome-lead){font-size:15px}.marina-welcome .welcome-main{height:470px}.marina-welcome .welcome-inset{left:-12px;width:155px}.marina-welcome .welcome-inset img{height:115px}.marina-letter{gap:30px}.marina-wish>.marina-newyear-wish{font-size:23px}}
+@media(max-width:600px){.marina-welcome{padding-top:32px;gap:28px}.marina-welcome h1{font-size:clamp(38px,10.5vw,52px);margin-bottom:24px}.marina-welcome .welcome-copy>.welcome-lead{font-size:24px}.marina-welcome .welcome-copy>p:not(.cozy-kicker):not(.welcome-lead){font-size:15px;max-width:360px}.marina-welcome .welcome-main{height:365px}.marina-welcome .welcome-visual{margin-top:4px}.marina-welcome .welcome-inset{left:2px;width:155px}.marina-letter{display:block;padding-top:28px;width:100%}.marina-letter-copy p{font-size:15px;text-align:center;max-width:360px;margin:0 auto 18px}.marina-wish{padding:22px 0 0}.marina-wish>.marina-newyear-wish{font-size:25px}.marina-wish>.marina-newyear-wish br{display:none}.marina-wish .marina-signature{font-size:35px}.marina-book-link{align-self:center;margin-top:2px}}
 
 /* Owner portrait: show the entire photograph, including the cake. */
 .marina-welcome .welcome-visual{padding:0}.marina-welcome .welcome-main.marina-portrait{height:auto;width:100%;border-radius:150px 150px 4px 4px}.site-header .nav-wrap{justify-content:space-between}.site-header #navigation{margin-left:0}@media(max-width:850px){.site-header .nav-wrap>.menu-toggle{margin-left:0}.marina-welcome .welcome-visual{width:min(100%,365px)}}
@@ -110,6 +110,13 @@ footer{background:var(--cream);border-top:1px solid var(--line)}.footer-top{padd
 .download-book > img { display: block; width: 100%; height: auto; border-radius: 8px; box-shadow: 0 14px 35px rgba(34, 48, 38, .15); }
 .download-book h2 { margin: 0 0 16px; }
 .download-book .button { margin: 12px 0; }
+.marina-wish .marina-recipe-note { margin-bottom: 24px; font-family: var(--sans); font-size: 15px; line-height: 1.7; }
+.gift-card { margin: 32px 0; padding: 28px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); text-align: left; }
+.gift-card h2 { margin: 12px 0; font-size: clamp(28px, 4vw, 38px); }
+.gift-card .button { margin-top: 20px; }
+.gift-included { margin: 20px 0; padding: 16px 18px; border-left: 3px solid var(--olive); background: var(--cream); text-align: left; }
+.gift-included strong { color: var(--olive); font-size: 15px; }
+.gift-included p { margin-top: 6px; font-size: 13px; }
 .order-reference { margin: 28px 0; padding: 20px 24px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); text-align: left; }
 .order-reference p + p { margin-top: 10px; font-size: 14px; }
 .order-reference span { overflow-wrap: anywhere; user-select: all; }

@@ -21,6 +21,20 @@
       {% endif %}
       </div>
     </div>
+    {% if order.product.bonus_pdf_name %}
+    <div class="gift-card">
+      <p class="cozy-kicker">С ЛЮБОВЬЮ — В ПОДАРОК</p>
+      <h2>{{ order.product.bonus_title }}</h2>
+      <p>Ещё один сборник рецептов для вас. Сохраните оба PDF на своё устройство.</p>
+      {% if bonus_download_token %}
+        <a class="button" href="{% url 'download' bonus_download_token %}">Скачать подарок {% icon 'arrow' %}</a>
+      {% elif bonus_download_issue == 'expired' %}
+        <p>Срок или лимит скачиваний закончился. Напишите в поддержку с номером заказа.</p>
+      {% else %}
+        <p>Подарочный файл временно недоступен. Напишите в поддержку с номером заказа — мы поможем.</p>
+      {% endif %}
+    </div>
+    {% endif %}
     {% if order.yookassa_invoice.test_mode %}<p class="test-notice">Тестовый платёж ЮKassa.</p>{% endif %}
   {% elif order.status == 'pending' %}
     <h1>Проверяем оплату.</h1>

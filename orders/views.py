@@ -63,7 +63,10 @@ def status(request, order_id):
     if order.status == Order.Status.CANCELLED and request.headers.get('Accept') != 'application/json':
         return redirect('payment-fail')
     token, issue = prepare_download(order.pk) if order.status == Order.Status.PAID else (None, '')
+    bonus_token, bonus_issue = (prepare_download(order.pk, asset='bonus')
+        if order.status == Order.Status.PAID and order.product.bonus_pdf_name else (None, ''))
     if request.headers.get('Accept') == 'application/json':
         return JsonResponse({'status': order.status, 'ready': bool(token), 'issue': issue})
     return render(request, 'status.html', {'order': order, 'download_token': token,
+        'bonus_download_token': bonus_token, 'bonus_download_issue': bonus_issue,
         'download_issue': issue, 'download_days': settings.DOWNLOAD_DAYS, 'download_limit': settings.DOWNLOAD_LIMIT})

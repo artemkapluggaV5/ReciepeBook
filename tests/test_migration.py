@@ -8,7 +8,8 @@ from django.utils import timezone
 class HistoricalMigrationTests(TransactionTestCase):
     def test_upgrade_preserves_legacy_paid_order_customer_and_token(self):
         executor = MigrationExecutor(connection)
-        executor.migrate([('payments', '0001_initial'), ('orders', '0002_alter_order_delivery_status')])
+        executor.migrate([('payments', '0001_initial'), ('orders', '0002_alter_order_delivery_status'),
+                          ('products', '0001_initial')])
         try:
             old = executor.loader.project_state([('payments','0001_initial'),('orders','0002_alter_order_delivery_status')]).apps
             Product = old.get_model('products', 'Product')

@@ -22,6 +22,9 @@ def download(request, token):
         if len(token) > 600:
             raise ValueError
         payload = signing.loads(token, salt=TOKEN_SALT)
+        asset = payload.get('asset', 'main')
+        if asset not in ('main', 'bonus'):
+            raise ValueError
         if payload['order'] not in request.session.get('orders', []):
             return render(request, 'message.html', {'title': 'Доступ к скачиванию ограничен',
                 'text': 'Откройте ссылку в том браузере, где оформляли покупку. Если доступ потерян, напишите в поддержку с номером заказа и данными платежа.'}, status=403)
@@ -34,14 +37,15 @@ def download(request, token):
             if order.token_issued_at < timezone.now() - timedelta(days=settings.DOWNLOAD_DAYS) or order.download_count >= settings.DOWNLOAD_LIMIT:
                 return render(request, 'message.html', {'title': 'Обновим вашу ссылку', 'text': 'Срок или лимит ссылки закончился. Сообщите поддержке номер заказа и данные платежа — мы поможем восстановить доступ.'}, status=410)
             try:
-                stream = order.product.private_path().open('rb')
+                stream = order.product.private_path(asset=asset).open('rb')
             except (ValueError, OSError):
                 logger.error('download_failed order=%s code=pdf_missing', order.pk)
                 return render(request, 'message.html', {'title': 'Файл временно недоступен', 'text': 'Оплата сохранена. Напишите в поддержку — мы восстановим выдачу.'}, status=503)
             if request.method == 'GET':
                 order.download_count += 1
                 order.save(update_fields=['download_count', 'updated_at'])
-            response = FileResponse(stream, as_attachment=True, filename='cookbook.pdf', content_type='application/pdf')
+            filename = 'marishkiny-retsepty-gift.pdf' if asset == 'bonus' else 'cookbook.pdf'
+            response = FileResponse(stream, as_attachment=True, filename=filename, content_type='application/pdf')
             response['Cache-Control'] = 'private, no-store'
             response['X-Robots-Tag'] = 'noindex, nofollow'
             return response

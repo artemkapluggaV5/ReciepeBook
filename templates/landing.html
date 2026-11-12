@@ -5,16 +5,16 @@
   <div class="welcome-copy">
     <p class="cozy-kicker">ИЗ КУХНИ МАРИНЫ · С ЛЮБОВЬЮ К ВАМ</p>
     <h1>Приветствую вас,<br><em>дорогие мои<br>читатели!</em></h1>
-    <p class="welcome-lead">Добро пожаловать<br>в мой кулинарный мир.</p>
-    <p class="marina-intro">Меня зовут <strong>Марина</strong>, и я очень рада видеть вас здесь.</p>
-    <p>Я собрала для вас самые лучшие рецепты для новогоднего праздника и вложила в этот сборник частичку души.</p>
+    <p class="welcome-lead">Я собрала для вас более 90 любимых рецептов, которые помогут создать по-настоящему красивый, вкусный и незабываемый праздничный стол.</p>
+    <p class="marina-intro">В этом сборнике всё, чтобы удивить близких, порадовать гостей и наполнить дом ароматами праздника.</p>
+    <p>Каждый рецепт подобран с любовью, чтобы вы могли готовить с удовольствием, без лишних хлопот и долгих поисков идей.</p>
   </div>
   <div class="welcome-visual">
     <img class="welcome-main marina-portrait" src="{% static 'img/marina-portrait.png' %}" alt="Марина с праздничным тортом у новогодней ёлки" width="1086" height="1448" fetchpriority="high">
   </div>
   <div class="marina-letter">
     <div class="marina-letter-copy"><p>В нём собраны рецепты, которые помогут вам накрыть красивый, вкусный и по-настоящему праздничный стол.</p><p>Пусть ваша подготовка к празднику станет приятной, лёгкой и наполненной радостью.</p></div>
-    <div class="marina-wish"><p>Пусть Новый год принесёт каждому<br><em>счастье, тепло и любовь.</em></p><p class="marina-signature"><span>С любовью к вам,</span>ваша Мариша!</p></div>
+    <div class="marina-wish"><p class="marina-recipe-note"><strong>Более 90 рецептов уже ждут вас.</strong><br>Салаты, закуски, десерты, горячие блюда и напитки.</p><p class="marina-newyear-wish">Пусть Новый год принесёт каждому<br> <em>счастье, тепло и любовь.</em></p><p class="marina-signature"><span>С любовью к вам,</span>ваша Мариша!</p></div>
   </div>
   <div class="marina-food-gallery" role="group" aria-label="Блюда Марины для праздничного стола">
     <figure class="food-print food-print-one"><img src="{% static 'img/marina-dish-1.webp' %}" alt="Запечённое мясо, нарезанное ломтиками, с двумя соусами" width="1050" height="1400" loading="lazy"></figure>
@@ -26,6 +26,7 @@
 </section>
 <section class="book-section cozy-wrap" id="book"><div class="cozy-divider" aria-hidden="true">{% icon 'flower' %}</div><p class="cozy-kicker">ВАШЕ ВДОХНОВЕНИЕ НА ПРАЗДНИКИ</p><div class="cozy-book owner-book marina-cover">{% if product.cover %}<img src="{{ product.cover.url }}" alt="Обложка сборника {{ product.title }}" width="1024" height="1536">{% else %}<img src="{% static 'img/marina-cookbook-cover-v2.png' %}" alt="Сборник новогодних рецептов Марины Новиковой" width="1024" height="1536">{% endif %}</div><h2 class="cozy-title">{{ product.title }}</h2><p class="book-description">{{ product.description }}</p><span class="book-format">Электронная книга · PDF · без подписки</span><div class="cozy-price">{{ product.price|floatformat:0 }} <span>₽</span></div><a class="button cozy-buy" href="#purchase">Получить сборник {% icon 'arrow' %}</a><p class="cozy-small">Скачивание PDF на сайте после подтверждения оплаты</p></section>
 <section class="cozy-wrap cozy-checkout" id="purchase"><div class="checkout-heading"><p class="cozy-kicker">ПУСТЬ ПРАЗДНИК НАЧНЁТСЯ</p><h2 class="cozy-title">Сохраните немного<br><em>домашнего тепла.</em></h2><p>Сборник в формате PDF.<br>Его удобно читать на телефоне, планшете и компьютере.</p></div><div class="purchase-card"><div class="card-top"><span>{{ product.title }}</span><span class="pill">PDF</span></div><div class="price">{{ product.price|floatformat:0 }} <span>₽</span></div><p class="purchase-delivery">После оплаты откроется страница с кнопкой «Скачать сборник».</p>{% if payment_failed %}<p class="form-error" role="alert">Оплата не завершена. Если деньги не списались, попробуйте оплатить ещё раз. Если списались — обратитесь в поддержку, повторно платить не нужно.</p>{% endif %}{% if purchase_error %}<div class="form-error" role="alert" tabindex="-1" id="purchase-error">{{ purchase_error }}</div>{% endif %}
+{% if product.bonus_pdf_name %}<aside class="gift-included"><strong>Второй сборник — в подарок</strong><p>«{{ product.bonus_title }}» в формате PDF. После оплаты сможете скачать оба сборника.</p></aside>{% endif %}
 <form method="post" action="{% url 'checkout' %}" id="purchase-form">{% csrf_token %}{{ form.request_key }}{{ form.website }}
 {% if form.receipt_email %}<div class="receipt-field"><label for="{{ form.receipt_email.id_for_label }}">{{ form.receipt_email.label }}</label>{{ form.receipt_email }}{{ form.receipt_email.errors }}<p class="small" id="receipt-email-help">ЮKassa отправит чек на эту почту. Сборник вы скачаете на сайте после оплаты.</p></div>{% endif %}
 <div class="consent-row">{{ form.consent }}<label for="{{ form.consent.id_for_label }}">Принимаю <a href="{% url 'legal' 'offer' %}">оферту</a>.</label></div>{{ form.consent.errors }}{{ form.non_field_errors }}

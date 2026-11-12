@@ -21,6 +21,8 @@ def create_checkout(product, key, receipt_email=''):
         raise PaymentError('sales_disabled')
     try:
         product.private_path()
+        if product.bonus_pdf_name:
+            product.private_path(asset='bonus')
     except (ValueError, OSError) as exc:
         raise PaymentError('pdf_missing') from exc
     provider = get_provider()

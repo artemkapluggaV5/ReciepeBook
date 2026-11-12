@@ -16,17 +16,24 @@ class Product(models.Model):
     recipe_count = models.PositiveIntegerField('Число рецептов', default=36)
     page_count = models.PositiveIntegerField('Число страниц', default=72)
     pdf_name = models.CharField('Имя PDF внутри PRIVATE_ROOT', max_length=180, blank=True)
+    bonus_pdf_name = models.CharField('Подарочный PDF внутри PRIVATE_ROOT', max_length=180, blank=True)
+    bonus_title = models.CharField('Название подарка', max_length=180, default='Маришкины рецепты', blank=True)
     active = models.BooleanField('Показывать на сайте', default=True)
     is_demo = models.BooleanField('Демонстрационные материалы', default=True)
     updated_at = models.DateTimeField(auto_now=True)
     def clean(self):
-        if self.pdf_name and (Path(self.pdf_name).name != self.pdf_name or not self.pdf_name.lower().endswith('.pdf') or '\\' in self.pdf_name):
-            raise ValidationError({'pdf_name': 'Укажите только имя PDF без пути.'})
-    def private_path(self):
-        if not self.pdf_name or Path(self.pdf_name).name != self.pdf_name or '\\' in self.pdf_name:
+        for field in ('pdf_name', 'bonus_pdf_name'):
+            name = getattr(self, field)
+            if name and (Path(name).name != name or not name.lower().endswith('.pdf') or '\\' in name):
+                raise ValidationError({field: 'Укажите только имя PDF без пути.'})
+    def private_path(self, asset='main'):
+        if asset not in ('main', 'bonus'):
+            raise ValueError('Unknown PDF asset')
+        name = self.bonus_pdf_name if asset == 'bonus' else self.pdf_name
+        if not name or Path(name).name != name or '\\' in name:
             raise ValueError('PDF is not configured')
         root = settings.PRIVATE_ROOT.resolve()
-        path = (root / self.pdf_name).resolve()
+        path = (root / name).resolve()
         if path.parent != root or path.suffix.lower() != '.pdf' or not path.is_file():
             raise ValueError('Private PDF missing or invalid')
         with path.open('rb') as stream:

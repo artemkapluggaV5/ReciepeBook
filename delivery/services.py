@@ -12,19 +12,22 @@ logger = logging.getLogger(__name__)
 TOKEN_SALT = 'recipe-shop.download.v1'
 
 
-def download_token(order):
-    return signing.dumps({'order': str(order.pk), 'version': str(order.token_version)},
+def download_token(order, asset='main'):
+    payload = {'order': str(order.pk), 'version': str(order.token_version)}
+    if asset != 'main':
+        payload['asset'] = asset
+    return signing.dumps(payload,
                          salt=TOKEN_SALT, compress=False)
 
 
-def prepare_download(order_id):
+def prepare_download(order_id, asset='main'):
     """Call after browser ownership checks. Never renew expired access implicitly."""
     with transaction.atomic():
         order = Order.objects.select_for_update(of=('self',)).select_related('product').get(pk=order_id)
         if order.status != Order.Status.PAID:
             return None, 'unpaid'
         try:
-            order.product.private_path()
+            order.product.private_path(asset=asset)
         except (OSError, ValueError):
             logger.error('download_failed order=%s code=pdf_missing', order.pk)
             return None, 'pdf_missing'
@@ -34,7 +37,7 @@ def prepare_download(order_id):
         if (order.token_issued_at < timezone.now() - timedelta(days=settings.DOWNLOAD_DAYS)
                 or order.download_count >= settings.DOWNLOAD_LIMIT):
             return None, 'expired'
-        return download_token(order), ''
+        return download_token(order, asset=asset), ''
 
 
 def renew_download(order_id):
