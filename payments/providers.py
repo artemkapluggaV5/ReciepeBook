@@ -17,6 +17,40 @@ RETURN_SALT = 'yookassa-order-return-v1'
 class PaymentError(Exception):
     """Only safe codes, never API bodies, secrets or authorization headers."""
 
+def api_error_code(error):
+    """Extract only documented enums/field names, never free-form API descriptions."""
+    code = f'yookassa_http_{error.code}'
+    try:
+        body = error.read(4097)
+        if len(body) > 4096:
+            return code
+        data = json.loads(body)
+        if not isinstance(data, dict):
+            return code
+        if data.get('code') in {'invalid_request', 'invalid_credentials', 'forbidden',
+                               'not_found', 'too_many_requests', 'internal_server_error'}:
+            code += ' api_code=' + data['code']
+        # Allow only known request field names; arbitrary strings could contain PII.
+        fields = {'Idempotence-Key', 'amount', 'value', 'currency', 'capture', 'confirmation',
+                  'type', 'return_url', 'description', 'metadata', 'order_id', 'receipt',
+                  'customer', 'email', 'phone', 'full_name', 'inn', 'items', 'quantity',
+                  'vat_code', 'payment_mode', 'payment_subject', 'tax_system_code',
+                  'payment_method_data', 'payment_method_id', 'save_payment_method',
+                  'customer_id', 'recipient', 'account_id', 'gateway_id', 'test'}
+        parameter = data.get('parameter')
+        if isinstance(parameter, str) and len(parameter) <= 120:
+            parts = parameter.replace('[', '.').replace(']', '').split('.')
+            if parts and all(part in fields or (part.isascii() and part.isdigit() and len(part) <= 3)
+                             for part in parts):
+                code += ' parameter=' + parameter
+        if valid_payment_id(data.get('id')):
+            code += ' error_id=' + data['id']
+        return code
+    except (ValueError, UnicodeError, OSError, TypeError):
+        return code
+    finally:
+        error.close()
+
 class NoRedirects(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
@@ -72,7 +106,7 @@ class YooKassa:
                     raise PaymentError('yookassa_invalid_response')
                 return result
         except HTTPError as exc:
-            raise PaymentError(f'yookassa_http_{exc.code}') from None
+            raise PaymentError(api_error_code(exc)) from None
         except (URLError, TimeoutError, OSError):
             raise PaymentError('yookassa_unavailable') from None
         except (ValueError, UnicodeError):

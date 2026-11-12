@@ -1,4 +1,5 @@
 import copy
+from io import BytesIO
 import json
 import tempfile
 import uuid
@@ -279,6 +280,31 @@ class YooKassaTests(TestCase):
             self.assertEqual(set(directives['form-action'].split()), {"'self'",'https://yoomoney.ru','https://yookassa.ru'})
             self.assertEqual(directives['script-src'],"'self'")
             self.assertNotIn('*',directives['form-action'])
+
+    def test_api_error_diagnostics_include_fields_but_never_secret_or_customer_values(self):
+        body = {'type': 'error', 'id': str(uuid.uuid4()), 'code': 'invalid_request',
+                'parameter': 'receipt.items[0].vat_code',
+                'description': 'secret test_unit_secret customer@example.test',
+                'email': 'customer@example.test'}
+        with patch('payments.providers.build_opener') as opener:
+            opener.return_value.open.side_effect = HTTPError('https://api.yookassa.ru/v3/payments',
+                400, 'secret', {}, BytesIO(json.dumps(body).encode()))
+            with self.assertRaises(PaymentError) as caught:
+                YooKassa().request('POST', 'payments', {})
+        self.assertIn('api_code=invalid_request parameter=receipt.items[0].vat_code', str(caught.exception))
+        self.assertIn('error_id=' + body['id'], str(caught.exception))
+        self.assertNotIn('secret', str(caught.exception))
+        self.assertNotIn('customer', str(caught.exception))
+
+    def test_api_error_diagnostics_handle_malformed_or_unsafe_bodies(self):
+        for body in [b'[]', b'broken', b'x' * 4097,
+                     b'{"code":"secret", "parameter":"test_unit_secret", "id":"secret"}']:
+            with patch('payments.providers.build_opener') as opener:
+                opener.return_value.open.side_effect = HTTPError('https://api.yookassa.ru/v3/payments',
+                    400, 'secret', {}, BytesIO(body))
+                with self.assertRaises(PaymentError) as caught:
+                    YooKassa().request('POST', 'payments', {})
+            self.assertEqual(str(caught.exception), 'yookassa_http_400')
 
     def test_forwarded_signed_return_never_grants_ownership(self):
         self.order.status = 'paid'
