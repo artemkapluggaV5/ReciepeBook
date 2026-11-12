@@ -4,7 +4,11 @@
 PDF не входит в Git и Docker image. Контрольная сумма утверждённого файла записана
 в `products/bonus_release.json`.
 
-После `git pull --ff-only origin main` и `docker compose up -d --build` загрузите
+После `git pull --ff-only origin main` и `docker compose up -d --build`
+миграция `0005_set_cookbook_price_1590` один раз устанавливает цену
+основного активного сборника 1590 ₽ независимо от наличия подарочного PDF.
+
+Для подарка загрузите
 оригинал PDF через SFTP в `/root/marishkiny-retsepty.pdf`, затем:
 
 ```bash
