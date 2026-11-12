@@ -4,6 +4,7 @@ from django.urls import reverse
 from django.utils.html import format_html
 from delivery.services import prepare_download, renew_download
 from .models import Order
+from .views import remember_order
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
@@ -31,11 +32,12 @@ class OrderAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
-    @admin.action(description='Показать ссылки оплаченных заказов (передавать только покупателю)')
+    @admin.action(description='Открыть оплаченные сборники в текущей сессии администратора')
     def download_links(self, request, queryset):
         for order in queryset:
             token, issue = prepare_download(order.pk)
             if token:
+                remember_order(request, order.pk)
                 url = settings.SITE_URL + reverse('download', args=[token])
                 self.message_user(request, format_html('Заказ {}: <a href="{}">Скачать сборник</a>', order.pk, url))
             else:
@@ -44,4 +46,4 @@ class OrderAdmin(admin.ModelAdmin):
     @admin.action(description='Обновить доступ оплаченным заказам (прежняя ссылка отзывается)')
     def renew(self, request, queryset):
         count = sum(renew_download(order.pk) for order in queryset)
-        self.message_user(request, f'Обновлён доступ: {count}. Используйте действие «Показать ссылки».')
+        self.message_user(request, f'Обновлён доступ: {count}. Используйте действие открытия сборников в текущей сессии.')

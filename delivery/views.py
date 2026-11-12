@@ -22,6 +22,9 @@ def download(request, token):
         if len(token) > 600:
             raise ValueError
         payload = signing.loads(token, salt=TOKEN_SALT)
+        if payload['order'] not in request.session.get('orders', []):
+            return render(request, 'message.html', {'title': 'Доступ к скачиванию ограничен',
+                'text': 'Откройте ссылку в том браузере, где оформляли покупку. Если доступ потерян, напишите в поддержку с номером заказа и данными платежа.'}, status=403)
         with transaction.atomic():
             order = Order.objects.select_for_update(of=('self',)).select_related('product').get(pk=payload['order'])
             if order.status != Order.Status.PAID or not order.token_issued_at:

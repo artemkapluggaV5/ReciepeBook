@@ -7,7 +7,6 @@ from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_safe
 from orders.models import Order
-from orders.views import remember_order
 from .providers import PaymentError, RETURN_SALT, valid_payment_id
 from .services import sync_payment, process_refund
 
@@ -52,9 +51,11 @@ def payment_return(request):
     except (signing.BadSignature, ValueError, TypeError, Order.DoesNotExist):
         return render(request, 'message.html', {'title':'Не удалось проверить возврат',
             'text':'Откройте страницу заказа в браузере покупки или напишите в поддержку.'}, status=400)
-    # The signed return only restores ownership. API verification in status
-    # independently confirms payment; URL/query parameters can never mark paid.
-    remember_order(request, order.pk)
+    # A forwarded return URL must not grant another browser ownership.
+    # Checkout already remembered the order before redirecting to YooKassa.
+    if str(order.pk) not in request.session.get('orders', []):
+        return render(request, 'message.html', {'title': 'Доступ к заказу ограничен',
+            'text': 'Вернитесь в браузер, где оформляли покупку. Если доступ потерян, напишите в поддержку с номером заказа и данными платежа.'}, status=403)
     return redirect('order-status', order_id=order.pk)
 
 @require_safe

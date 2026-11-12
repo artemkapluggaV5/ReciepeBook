@@ -12,7 +12,7 @@
       <div><h2>{{ order.product_title }}</h2><p>Электронная книга · PDF</p>
       {% if download_token %}
         <a class="button" href="{% url 'download' download_token %}">Скачать сборник {% icon 'arrow' %}</a>
-        <p class="small">Сохраните файл на устройство и добавьте эту страницу в закладки. Доступ: {{ download_days }} дней, до {{ download_limit }} скачиваний.</p>
+        <p class="small">Сохраните файл на устройство и добавьте эту страницу в закладки. Скачивание доступно только в браузере покупки. Доступ: {{ download_days }} дней, до {{ download_limit }} скачиваний.</p>
       {% elif download_issue == 'expired' %}
         <p role="status">Срок или лимит скачиваний закончился. Сообщите поддержке номер заказа — мы поможем восстановить доступ.</p>
       {% else %}

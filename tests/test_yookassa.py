@@ -53,6 +53,7 @@ class YooKassaTests(TestCase):
         sync_payment(self.order.pk, force=True)
         self.order.refresh_from_db()
     def test_verified_webhook_unlocks_private_download(self):
+        self.own()
         with patch.object(YooKassa, 'retrieve_payment', return_value=self.payment()) as api:
             self.assertEqual(self.callback().status_code, 200)
         api.assert_called_once_with(self.order.provider_payment_id)
@@ -97,6 +98,7 @@ class YooKassaTests(TestCase):
             self.sync()
         self.assertEqual(self.order.status, 'pending')
     def test_no_webhook_needed_return_verifies_api_and_shows_download(self):
+        self.own()
         token = signing.dumps(str(self.order.pk), salt=RETURN_SALT)
         with patch.object(YooKassa, 'retrieve_payment', return_value=self.payment()):
             response = self.client.get(reverse('yookassa-return'), {'token':token}, follow=True)
@@ -109,6 +111,7 @@ class YooKassaTests(TestCase):
             self.assertEqual(response.status_code, 400)
         self.assertEqual(self.client.get(reverse('order-status', args=[self.order.pk])).status_code, 403)
     def test_signed_return_with_pending_api_does_not_unlock_download(self):
+        self.own()
         token = signing.dumps(str(self.order.pk), salt=RETURN_SALT)
         with patch.object(YooKassa, 'retrieve_payment', return_value=self.payment('pending')):
             response = self.client.get(reverse('yookassa-return'), {'token':token}, follow=True)
@@ -166,6 +169,7 @@ class YooKassaTests(TestCase):
             self.sync()
         self.assertEqual(self.order.status,'refunded')
     def test_authenticated_refund_revokes_access_and_is_idempotent(self):
+        self.own()
         self.order.status='paid'
         self.order.save()
         token, _ = prepare_download(self.order.pk)
@@ -275,3 +279,16 @@ class YooKassaTests(TestCase):
             self.assertEqual(set(directives['form-action'].split()), {"'self'",'https://yoomoney.ru','https://yookassa.ru'})
             self.assertEqual(directives['script-src'],"'self'")
             self.assertNotIn('*',directives['form-action'])
+
+    def test_forwarded_signed_return_never_grants_ownership(self):
+        self.order.status = 'paid'
+        self.order.save()
+        token = signing.dumps(str(self.order.pk), salt=RETURN_SALT)
+        with patch.object(YooKassa, 'retrieve_payment') as api:
+            response = self.client.get(reverse('yookassa-return'), {'token': token}, follow=True)
+        self.assertEqual(response.status_code, 403)
+        api.assert_not_called()
+        self.assertNotIn(str(self.order.pk), self.client.session.get('orders', []))
+        self.assertEqual(self.client.get(reverse('order-status', args=[self.order.pk])).status_code, 403)
+        download, _ = prepare_download(self.order.pk)
+        self.assertEqual(self.client.get(reverse('download', args=[download])).status_code, 403)

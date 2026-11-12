@@ -182,11 +182,13 @@ class ShopTests(TestCase):
 
     def test_unpaid_download_denied(self):
         order = self.order(token_issued_at=timezone.now())
+        self.own_order(order)
         self.assertEqual(self.client.get(reverse('download', args=[download_token(order)])).status_code, 404)
 
 
     def test_paid_pdf_download_and_headers(self):
         order = self.order(status='paid', token_issued_at=timezone.now())
+        self.own_order(order)
         response = self.client.get(reverse('download', args=[download_token(order)]))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers['Content-Type'], 'application/pdf')
@@ -201,6 +203,7 @@ class ShopTests(TestCase):
 
     def test_head_does_not_consume_limit(self):
         order = self.order(status='paid', token_issued_at=timezone.now())
+        self.own_order(order)
         response = self.client.head(reverse('download', args=[download_token(order)]))
         with patch('django.core.signals.request_finished.send'):
             response.close()
@@ -211,11 +214,13 @@ class ShopTests(TestCase):
     def test_invalid_and_expired_tokens(self):
         self.assertEqual(self.client.get('/download/invalid/').status_code, 404)
         order = self.order(status='paid', token_issued_at=timezone.now()-timedelta(days=31))
+        self.own_order(order)
         self.assertEqual(self.client.get(reverse('download', args=[download_token(order)])).status_code, 410)
 
 
     def test_download_limit(self):
         order = self.order(status='paid', token_issued_at=timezone.now(), download_count=20)
+        self.own_order(order)
         self.assertEqual(self.client.get(reverse('download', args=[download_token(order)])).status_code, 410)
 
 
@@ -231,6 +236,7 @@ class ShopTests(TestCase):
 
     def test_renew_revokes_old_link(self):
         order = self.order(status='paid')
+        self.own_order(order)
         old, _ = prepare_download(order.pk)
         self.assertTrue(renew_download(order.pk))
         self.assertEqual(self.client.get(reverse('download', args=[old])).status_code, 404)
@@ -287,6 +293,7 @@ class ShopTests(TestCase):
 
     def test_legacy_paid_order_stays_downloadable(self):
         order = self.order(provider='cloudpayments', status='paid', token_issued_at=timezone.now())
+        self.own_order(order)
         original = (Decimal(order.amount), order.status, order.token_version)
         response = self.client.get(reverse('download', args=[download_token(order)]))
         self.assertEqual(response.status_code, 200)
@@ -354,3 +361,56 @@ class ShopTests(TestCase):
         self.assertNotContains(response, '/download/')
         order.refresh_from_db()
         self.assertEqual(order.token_issued_at, issued)
+
+    def test_forwarded_download_denied_even_to_another_paying_buyer(self):
+        order = self.order(status='paid', token_issued_at=timezone.now())
+        self.own_order(order)
+        stranger = Client()
+        other = self.order(status='paid')
+        session = stranger.session
+        session['orders'] = [str(other.pk)]
+        session.save()
+        url = reverse('download', args=[download_token(order)])
+        for client in [Client(), stranger]:
+            for method in [client.get, client.head]:
+                with patch('products.models.Product.private_path') as private_path:
+                    response = method(url)
+                self.assertEqual(response.status_code, 403)
+                private_path.assert_not_called()
+                self.assertIn('no-store', response.headers['Cache-Control'])
+        order.refresh_from_db()
+        self.assertEqual(order.download_count, 0)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        b''.join(response.streaming_content)
+        response.close()
+        order.refresh_from_db()
+        self.assertEqual(order.download_count, 1)
+
+    def test_cleared_session_cannot_use_previously_valid_download(self):
+        order = self.order(status='paid', token_issued_at=timezone.now())
+        self.own_order(order)
+        self.client.session.flush()
+        self.assertEqual(self.client.get(reverse('download', args=[download_token(order)])).status_code, 403)
+
+    def test_checkout_return_and_download_preserve_purchaser_session(self):
+        response, _ = self.mock_checkout(self.form_data())
+        self.assertEqual(response.status_code, 302)
+        order = Order.objects.get()
+        from django.core import signing
+        from payments.providers import RETURN_SALT
+        token = signing.dumps(str(order.pk), salt=RETURN_SALT)
+        payment = {'id': order.provider_payment_id, 'status': 'succeeded', 'paid': True,
+                   'test': True, 'recipient': {'account_id': '123'},
+                   'amount': {'value': '890.00', 'currency': 'RUB'},
+                   'metadata': {'order_id': str(order.pk)}}
+        with patch.object(YooKassa, 'retrieve_payment', return_value=payment):
+            response = self.client.get(reverse('yookassa-return'), {'token': token}, follow=True)
+        self.assertContains(response, '/download/')
+        download, issue = prepare_download(order.pk)
+        self.assertFalse(issue)
+        response = self.client.get(reverse('download', args=[download]))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(b''.join(response.streaming_content).startswith(b'%PDF-'))
+        response.close()
+        self.assertEqual(Client().get(reverse('download', args=[download])).status_code, 403)
