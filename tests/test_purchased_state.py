@@ -31,9 +31,10 @@ class PurchasedStorefrontTests(TestCase):
         order = self.order()
         self.own(order)
         response = self.client.get('/')
-        self.assertContains(response, '>Скачать сборник ', count=3)
-        self.assertContains(response, 'href="' + reverse('order-status', args=[order.pk]) + '"', count=3)
+        self.assertContains(response, '>Скачать сборник ', count=4)
+        self.assertContains(response, 'href="' + reverse('order-status', args=[order.pk]) + '"', count=4)
         self.assertContains(response, 'Оплата подтверждена')
+        self.assertContains(response, 'class="welcome-download"')
         self.assertNotContains(response, 'id="purchase-form"')
         self.assertNotContains(response, 'name="receipt_email"')
         self.assertNotContains(response, 'class="price"')
@@ -89,7 +90,7 @@ class PurchasedStorefrontTests(TestCase):
     def test_expired_paid_access_still_points_to_order_instead_of_charging_again(self):
         order = self.order(token_issued_at=timezone.now()-timedelta(days=31), download_count=20)
         self.own(order)
-        self.assertContains(self.client.get('/'), '>Скачать сборник ', count=3)
+        self.assertContains(self.client.get('/'), '>Скачать сборник ', count=4)
 
     def test_invalid_legacy_session_values_do_not_break_storefront(self):
         session = self.client.session
@@ -102,18 +103,23 @@ class PurchasedStorefrontTests(TestCase):
         response = self.client.get('/')
         self.assertContains(response, 'name="receipt_email"')
         self.assertContains(response, 'Получить новогодний сборник')
-        self.assertNotContains(response, 'id="how-to-get"')
+        self.assertContains(response, 'id="how-to-get"')
+        self.assertContains(response, '«Вернуться на страницу»')
+        self.assertContains(response, 'На странице сайта скачайте')
+        self.assertContains(response, 'Оба PDF будут на странице самого сайта.')
+        self.assertNotContains(response, 'class="welcome-download"')
         order = self.order()
         self.own(order)
         response = self.client.get('/')
         self.assertNotContains(response, 'name="receipt_email"')
         self.assertNotContains(response, 'name="consent"')
+        self.assertNotContains(response, 'id="how-to-get"')
         self.assertContains(response, 'Можно скачивать!')
-        self.assertContains(response, '>Скачать сборник ', count=3)
+        self.assertContains(response, '>Скачать сборник ', count=4)
 
     def test_purchase_from_before_feature_release_is_recognized(self):
         order = self.order()
         earlier = timezone.now()-timedelta(days=14)
         Order.objects.filter(pk=order.pk).update(created_at=earlier, paid_at=earlier)
         self.own(order)
-        self.assertContains(self.client.get('/'), '>Скачать сборник ', count=3)
+        self.assertContains(self.client.get('/'), '>Скачать сборник ', count=4)
