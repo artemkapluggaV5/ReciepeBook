@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.http import HttpResponseRedirect
+from urllib.parse import urlencode
 
 
 class CanonicalHostMiddleware:
@@ -8,7 +9,11 @@ class CanonicalHostMiddleware:
 
     def __call__(self, request):
         host = request.get_host().split(':', 1)[0].lower().rstrip('.')
-        if not settings.CANONICAL_HOST or host not in settings.CANONICAL_REDIRECT_HOSTS or request.path == '/health/':
+        if not settings.CANONICAL_HOST or host not in settings.CANONICAL_REDIRECT_HOSTS:
+            return self.get_response(request)
+
+        if (request.path == '/domain/confirm/' and request.method in {'GET', 'HEAD'}) or (request.path == '/payments/yookassa/webhook/' and request.method == 'POST'):
+            # The bridge only issues redirects; the webhook is a server callback.
             return self.get_response(request)
 
         if request.method not in {'GET', 'HEAD'}:
@@ -18,16 +23,18 @@ class CanonicalHostMiddleware:
                 response = HttpResponseRedirect(settings.SITE_URL + '/#purchase')
                 response.status_code = 303
             else:
-                # Payment callbacks must be processed at their registered URL.
-                return self.get_response(request)
+                response = HttpResponseRedirect(settings.SITE_URL + request.get_full_path())
+                response.status_code = 308
         elif request.path.startswith(('/order/', '/download/', '/payments/')) and request.session.get('orders'):
-            # Preserve host-only ownership for purchases made before www became
-            # canonical. No session IDs or paid capabilities travel in URLs.
-            return self.get_response(request)
+            # Transfer ownership using a one-time grant bound to a host-only www
+            # session, then open the original path on www. No real session IDs
+            # are placed in redirect URLs or shared with delegated subdomains.
+            response = HttpResponseRedirect(settings.SITE_URL + '/domain/prepare/?' + urlencode({'next': request.get_full_path()}))
         else:
             response = HttpResponseRedirect(settings.SITE_URL + request.get_full_path())
             response.status_code = 308
         response['Cache-Control'] = 'private, no-store'
+        response['Referrer-Policy'] = 'no-referrer'
         return response
 
 
