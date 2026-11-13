@@ -1,11 +1,15 @@
+{% load static %}
 <aside class="purchase-guide" id="how-to-get" aria-labelledby="purchase-guide-title">
   <p class="cozy-kicker">ОТ ОПЛАТЫ ДО ПЕРВОГО РЕЦЕПТА</p>
   <h3 id="purchase-guide-title">Как получить сборники</h3>
   <p class="purchase-guide-intro">Короткая видеоинструкция — чтобы всё было понятно.</p>
-  <div class="guide-video-frame" role="img" aria-label="Место для видеоинструкции. Видео скоро появится.">
-    <span class="guide-play" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5a1 1 0 0 1 1.5-.86l10 6a1.6 1.6 0 0 1 0 2.72l-10 6A1 1 0 0 1 8 18.5z"/></svg></span>
-    <span>Видео скоро появится</span>
+  <div class="guide-video-frame">
+    <video controls playsinline preload="metadata" width="592" height="1280" poster="{% static 'img/how-to-get-cookbooks-poster.webp' %}" aria-labelledby="purchase-guide-title">
+      <source src="{% static 'video/how-to-get-cookbooks.mp4' %}" type="video/mp4">
+      <p><a href="{% static 'video/how-to-get-cookbooks.mp4' %}">Открыть видеоинструкцию</a></p>
+    </video>
   </div>
+  <p class="guide-video-tip">Нажмите ▶, чтобы посмотреть. Видео можно развернуть на весь экран.</p>
   <ol class="guide-steps">
     <li><span>Оплатите сборник на странице ЮKassa.</span></li>
     <li><span>После оплаты нажмите <strong>«Вернуться на страницу»</strong>.</span></li>

@@ -104,6 +104,9 @@ class PurchasedStorefrontTests(TestCase):
         self.assertContains(response, 'name="receipt_email"')
         self.assertContains(response, 'Получить новогодний сборник')
         self.assertContains(response, 'id="how-to-get"')
+        self.assertContains(response, '<video controls playsinline preload="metadata"')
+        self.assertContains(response, '/static/video/how-to-get-cookbooks.mp4')
+        self.assertNotContains(response, 'Видео скоро появится')
         self.assertContains(response, '«Вернуться на страницу»')
         self.assertContains(response, 'На странице сайта скачайте')
         self.assertContains(response, 'Оба PDF будут на странице самого сайта.')
@@ -114,6 +117,7 @@ class PurchasedStorefrontTests(TestCase):
         self.assertNotContains(response, 'name="receipt_email"')
         self.assertNotContains(response, 'name="consent"')
         self.assertNotContains(response, 'id="how-to-get"')
+        self.assertNotContains(response, '<video ')
         self.assertContains(response, 'Можно скачивать!')
         self.assertContains(response, '>Скачать сборник ', count=4)
 

@@ -141,9 +141,9 @@ footer{background:var(--cream);border-top:1px solid var(--line)}.footer-top{padd
 .purchase-guide .cozy-kicker{font-size:9px;letter-spacing:.12em;margin-bottom:10px}
 .purchase-guide h3{font-size:29px;line-height:1.15;color:var(--forest);margin:0 0 10px}
 .purchase-guide .purchase-guide-intro{font-size:13px;line-height:1.65;margin:0 0 18px}
-.guide-video-frame{aspect-ratio:16 / 9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;border:1px solid #d9dfd0;border-radius:8px;background:radial-gradient(ellipse at 50% 35%,#f5f3e9,#e5eadd);color:var(--forest);font-size:12px;text-align:center;padding:18px}
-.guide-play{width:60px;height:60px;display:grid;place-items:center;border-radius:50%;background:var(--forest);color:var(--paper);box-shadow:0 7px 18px #334e4017}
-.guide-play svg{margin-left:1px}
+.guide-video-frame{width:min(100%,260px);aspect-ratio:37 / 80;margin:0 auto;border:1px solid #d9dfd0;border-radius:8px;background:#172f26;overflow:hidden}
+.guide-video-frame video{display:block;width:100%;height:100%;object-fit:contain}
+.purchase-guide .guide-video-tip{margin:12px 0 0;font-size:12px;line-height:1.6;text-align:center}
 .guide-steps{display:grid;gap:12px;list-style:none;counter-reset:guide-step;margin:22px 0 18px;padding:0}
 .guide-steps li{counter-increment:guide-step;display:grid;grid-template-columns:24px minmax(0,1fr);gap:10px;align-items:start;font-size:13px;line-height:1.65;color:var(--ink)}
 .guide-steps li::before{content:counter(guide-step);display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#eaf0e5;color:var(--forest);font-size:11px;font-weight:600}
@@ -152,6 +152,6 @@ footer{background:var(--cream);border-top:1px solid var(--line)}.footer-top{padd
 .purchase-guide-link{display:inline-block;color:var(--forest);font-size:13px;line-height:1.6;text-underline-offset:4px;text-decoration-thickness:1px}
 .book-section .purchase-guide-link{margin-top:4px}
 .purchase-card .purchase-guide-link{margin:0 0 18px}
-@media(max-width:600px){.with-purchase-guide .checkout-heading,.with-purchase-guide .purchase-card,.with-purchase-guide .purchase-guide{grid-column:auto;grid-row:auto}.purchase-guide{padding:22px 20px}.purchase-guide h3{font-size:28px}.guide-video-frame{padding:14px}.guide-play{width:54px;height:54px}.guide-steps li{font-size:14px}}
+@media(max-width:600px){.with-purchase-guide .checkout-heading,.with-purchase-guide .purchase-card,.with-purchase-guide .purchase-guide{grid-column:auto;grid-row:auto}.purchase-guide{padding:22px 20px}.purchase-guide h3{font-size:28px}.guide-steps li{font-size:14px}}
 .welcome-download{margin:-8px 0 26px}
 .welcome-download .button{gap:16px;min-height:50px;padding:14px 22px;border-radius:6px;font-size:14px}
