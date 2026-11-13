@@ -277,12 +277,14 @@ class ShopTests(TestCase):
             call_command('check_launch')
 
 
-    def test_finished_order_allows_a_new_purchase_nonce(self):
+    def test_paid_order_shows_download_instead_of_a_new_purchase(self):
         data = self.form_data()
         self.mock_checkout(data)
         Order.objects.update(status='paid')
-        self.client.get('/')
-        self.assertNotEqual(self.client.session['checkout_key'], data['request_key'])
+        response = self.client.get('/')
+        self.assertEqual(self.client.session['checkout_key'], data['request_key'])
+        self.assertContains(response, 'Перейти к скачиванию')
+        self.assertNotContains(response, 'id="purchase-form"')
 
 
     def test_admin_login_rate_limited(self):

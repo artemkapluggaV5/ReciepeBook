@@ -20,12 +20,14 @@ class CanonicalHostMiddleware:
             if request.path == '/checkout/':
                 # An old, already-open form belongs to the apex host's cookie.
                 # Start a fresh form on www before creating or charging an order.
-                response = HttpResponseRedirect(settings.SITE_URL + '/#purchase')
+                target = '/#purchase'
+                response = HttpResponseRedirect(settings.SITE_URL + (
+                    '/domain/prepare/?' + urlencode({'next': target}) if request.session.get('orders') else target))
                 response.status_code = 303
             else:
                 response = HttpResponseRedirect(settings.SITE_URL + request.get_full_path())
                 response.status_code = 308
-        elif request.path.startswith(('/order/', '/download/', '/payments/')) and request.session.get('orders'):
+        elif request.session.get('orders'):
             # Transfer ownership using a one-time grant bound to a host-only www
             # session, then open the original path on www. No real session IDs
             # are placed in redirect URLs or shared with delegated subdomains.
@@ -48,6 +50,8 @@ class SecurityHeadersMiddleware:
             if limited(request, 'admin-login', limit=10, seconds=600):
                 return HttpResponse('Слишком много попыток. Повторите позже.', status=429)
         response = self.get_response(request)
+        if getattr(request, '_has_purchase_history', False):
+            response['Cache-Control'] = 'private, no-store'
         response['Content-Security-Policy'] = (
             "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; "
             "font-src 'self'; connect-src 'self'; form-action 'self' https://yoomoney.ru https://yookassa.ru; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"

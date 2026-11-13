@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_safe
 from orders.forms import CheckoutForm
 from orders.models import Order
+from orders.access import purchased_order
 from products.models import Product
 from .models import LegalPage
 from payments.receipts import receipts_enabled
@@ -19,6 +20,11 @@ def landing(request):
     product = Product.objects.filter(active=True).prefetch_related('benefits','chapters','recipes','previews').first()
     if not product:
         return render(request, 'message.html', {'title': 'Скоро будет вкусно', 'text': 'Сборник готовится к публикации. Заходите позже.'}, status=503)
+    paid = purchased_order(request, product)
+    if paid:
+        response = render(request, 'landing.html', {'product': product, 'purchased_order': paid})
+        response['Cache-Control'] = 'private, no-store'
+        return response
     old_key = request.session.get('checkout_key')
     complete = old_key and Order.objects.filter(request_key=old_key, status__in=['paid','refunded','cancelled']).exists()
     legacy = old_key and Order.objects.filter(request_key=old_key).exclude(provider='yookassa').exists()
@@ -33,7 +39,9 @@ def landing(request):
         request.session['checkout_key'] = str(uuid.uuid4())
         request.session['checkout_receipts'] = receipts_enabled()
     form = CheckoutForm(initial={'request_key': request.session['checkout_key']})
-    return render(request, 'landing.html', {'product': product, 'form': form, 'payment_failed': request.session.pop('payment_failed', False)})
+    response = render(request, 'landing.html', {'product': product, 'form': form, 'payment_failed': request.session.pop('payment_failed', False)})
+    response['Cache-Control'] = 'private, no-store'
+    return response
 
 @require_safe
 def legal(request, slug):

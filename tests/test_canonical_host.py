@@ -142,6 +142,25 @@ class CanonicalHostTests(TestCase):
         self.assertIn(existing, www.session['orders'])
         self.assertIn(str(self.order.pk), www.session['orders'])
 
+    def test_old_apex_homepage_also_recovers_purchase_buttons_on_www(self):
+        www = Client()
+        finish_url = self.prepare_transfer(www, '/')
+        response = www.get(finish_url, HTTP_HOST=self.www, secure=True)
+        self.assertEqual(response['Location'], 'https://' + self.www + '/')
+        response = www.get('/', HTTP_HOST=self.www, secure=True)
+        self.assertContains(response, 'Перейти к скачиванию', count=3)
+        self.assertNotContains(response, 'id="purchase-form"')
+
+    def test_old_paid_checkout_form_starts_ownership_transfer_before_new_payment(self):
+        session = self.client.session
+        session['orders'] = [str(self.order.pk)]
+        session.save()
+        response = self.client.post('/checkout/', {}, HTTP_HOST=self.apex, secure=True)
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(urlsplit(response['Location']).hostname, self.www)
+        self.assertEqual(urlsplit(response['Location']).path, '/domain/prepare/')
+        self.assertFalse(YooKassaInvoice.objects.exists())
+
     def test_grant_requires_www_browser_and_is_single_use_not_a_login_cookie(self):
         www = Client()
         path = '/order/' + str(self.order.pk) + '/'

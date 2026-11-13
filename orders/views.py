@@ -11,6 +11,7 @@ from .forms import CheckoutForm
 from .models import Order
 from .rate_limit import limited
 from .services import create_checkout
+from .access import purchased_order
 
 logger = logging.getLogger(__name__)
 
@@ -23,14 +24,17 @@ def remember_order(request, order_id):
 
 @require_POST
 def checkout(request):
+    product = Product.objects.filter(active=True).first()
+    if not product:
+        return HttpResponse('Сборник временно недоступен.', status=503)
+    paid = purchased_order(request, product)
+    if paid:
+        return redirect('order-status', order_id=paid.pk)
     if limited(request, 'checkout'):
         response = render(request, 'message.html', {'title': 'Небольшая пауза', 'text': 'Слишком много попыток. Повторите через 10 минут.'}, status=429)
         response['Retry-After'] = '600'
         return response
     form = CheckoutForm(request.POST)
-    product = Product.objects.filter(active=True).first()
-    if not product:
-        return HttpResponse('Сборник временно недоступен.', status=503)
     if not form.is_valid():
         message = ('Укажите корректную почту для чека и примите условия оферты.'
                    if 'receipt_email' in form.errors else 'Примите условия оферты и повторите попытку.')

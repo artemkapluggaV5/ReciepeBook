@@ -122,4 +122,29 @@ footer{background:var(--cream);border-top:1px solid var(--line)}.footer-top{padd
 .order-reference { margin: 28px 0; padding: 20px 24px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); text-align: left; }
 .order-reference p + p { margin-top: 10px; font-size: 14px; }
 .order-reference span { overflow-wrap: anywhere; user-select: all; }
+.cozy-checkout{row-gap:24px;align-items:start}
+.cozy-checkout .checkout-heading{grid-column:1;grid-row:1}
+.cozy-checkout .purchase-card{grid-column:2;grid-row:1 / span 2}
+.purchase-guide{grid-column:1;grid-row:2;min-width:0;padding:24px;border:1px solid var(--line);border-radius:12px;background:var(--paper);scroll-margin-top:24px;text-align:left}
+.purchase-guide .cozy-kicker{font-size:9px;letter-spacing:.12em;margin-bottom:10px}
+.purchase-guide h3{font-size:29px;line-height:1.15;color:var(--forest);margin:0 0 10px}
+.purchase-guide .purchase-guide-intro{font-size:13px;line-height:1.65;margin:0 0 18px}
+.guide-video-frame{aspect-ratio:16 / 9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;border:1px solid #d9dfd0;border-radius:8px;background:radial-gradient(ellipse at 50% 35%,#f5f3e9,#e5eadd);color:var(--forest);font-size:12px;text-align:center;padding:18px}
+.guide-play{width:60px;height:60px;display:grid;place-items:center;border-radius:50%;background:var(--forest);color:var(--paper);box-shadow:0 7px 18px #334e4017}
+.guide-play svg{margin-left:1px}
+.guide-steps{display:grid;gap:12px;list-style:none;counter-reset:guide-step;margin:22px 0 18px;padding:0}
+.guide-steps li{counter-increment:guide-step;display:grid;grid-template-columns:24px minmax(0,1fr);gap:10px;align-items:start;font-size:13px;line-height:1.65;color:var(--ink)}
+.guide-steps li::before{content:counter(guide-step);display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#eaf0e5;color:var(--forest);font-size:11px;font-weight:600}
+.guide-steps strong{font-weight:600}
+.purchase-guide .guide-receipt-note{border-top:1px solid var(--line);padding-top:14px;margin:0;font-size:12px;line-height:1.6}
+.purchase-guide-link{display:inline-block;color:var(--forest);font-size:13px;line-height:1.6;text-underline-offset:4px;text-decoration-thickness:1px}
+.book-section .purchase-guide-link{margin-top:4px}
+.purchase-card .purchase-guide-link{margin:0 0 18px}
+.purchase-confirmed{padding-top:24px}
+.purchase-confirmed-badge{display:inline-block;padding:7px 12px;border-radius:30px;background:#eaf0e5;color:var(--forest);font-size:11px;font-weight:600;letter-spacing:.025em}
+.purchase-confirmed h3{margin:22px 0 14px;color:var(--forest);font-size:32px;line-height:1.15}
+.purchase-confirmed p{margin:0 0 22px;font-size:14px;line-height:1.7}
+.purchase-confirmed .purchase-button{width:100%;box-sizing:border-box;text-decoration:none}
+.purchase-confirmed .small{margin:18px 0 0;font-size:12px}
+@media(max-width:600px){.cozy-checkout .checkout-heading,.cozy-checkout .purchase-card,.cozy-checkout .purchase-guide{grid-column:auto;grid-row:auto}.purchase-guide{padding:22px 20px}.purchase-guide h3{font-size:28px}.guide-video-frame{padding:14px}.guide-play{width:54px;height:54px}.guide-steps li{font-size:14px}}
 @media (max-width: 600px) { .download-book { grid-template-columns: 1fr; gap: 24px; } .download-book > img { max-width: 230px; margin: 0 auto; } .download-book .button { width: 100%; } }

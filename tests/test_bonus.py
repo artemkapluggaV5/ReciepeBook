@@ -103,7 +103,7 @@ class BonusTests(TestCase):
         self.assertEqual(self.product.price, Decimal('1590'))
 
     def test_landing_has_new_intro_and_gift_offer(self):
-        response = self.client.get('/')
+        response = Client().get('/')
         self.assertContains(response, 'более 90 любимых рецептов')
         self.assertContains(response, 'Более 90 рецептов уже ждут вас.')
         self.assertContains(response, 'Второй сборник — в подарок')

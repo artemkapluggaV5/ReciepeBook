@@ -16,7 +16,7 @@
   <link rel="stylesheet" href="{% static 'css/compat.css' %}">
   <link rel="stylesheet" href="{% static 'css/holiday.css' %}?v=1f38be0842">
   <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}">
-  <link rel="stylesheet" href="{% static 'css/cozy.css' %}?v=welcome-price-2">
+  <link rel="stylesheet" href="{% static 'css/cozy.css' %}?v=purchased-state-1">
   <script src="{% static 'js/site.js' %}" defer></script>
   {% if not sales_enabled %}<meta name="robots" content="noindex,nofollow">{% endif %}
 </head>
@@ -26,7 +26,8 @@
   <a class="site-name" href="/" aria-label="{{ site_name }} — на главную"><span>Новогодний сборник</span><strong>Маришкины рецепты</strong></a>
   <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="navigation">Меню {% icon 'menu' %}</button>
   <nav id="navigation" aria-label="Основная навигация"><a href="/#welcome">Знакомство</a><a href="/#book">Сборник</a><a href="/#telegram">На связи</a></nav>
-  <a class="button button-small nav-cta" href="/#purchase">Получить сборник {% icon 'arrow' %}</a>
+  {% if purchased_order %}<a class="button button-small nav-cta" href="{% url 'order-status' purchased_order.pk %}">Перейти к скачиванию {% icon 'arrow' %}</a>
+  {% else %}<a class="button button-small nav-cta" href="/#purchase">Получить сборник {% icon 'arrow' %}</a>{% endif %}
 </div></header>
 <main id="main">{% block content %}{% endblock %}</main>
 <footer><div class="wrap footer-top"><div><p>Праздник начинается с домашнего тепла.</p></div><div><span class="eyebrow">Есть вопрос?</span><a class="contact" href="mailto:{{ contact_email }}">{{ contact_email }} {% icon 'arrow' %}</a></div></div>
