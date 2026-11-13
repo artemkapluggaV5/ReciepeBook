@@ -22,7 +22,7 @@ YOOKASSA_TEST_MODE=True. Пароли БД, SECRET_KEY, настройки до�
 
 В кабинете тестового магазина ЮKassa → Интеграция → HTTP-уведомления:
 
-- URL: https://marishkinirecepti.ru/payments/yookassa/webhook/
+- URL: https://www.marishkinirecepti.ru/payments/yookassa/webhook/
 - события: payment.succeeded, payment.canceled, refund.succeeded.
 
 Отдельные SuccessURL/FailURL в кабинете не нужны. Подписанный return_url передаётся

@@ -20,6 +20,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware', 'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware', 'django.middleware.common.CommonMiddleware',
+    'core.middleware.CanonicalHostMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware', 'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware', 'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'core.middleware.SecurityHeadersMiddleware',
@@ -63,6 +64,20 @@ SITE_URL = env('SITE_URL', default='http://127.0.0.1:8000').rstrip('/')
 SITE_NAME = env('SITE_NAME', default='Новогодний сборник Маришкины рецепты')
 if not DEBUG and (urlsplit(SITE_URL).scheme != 'https' or not urlsplit(SITE_URL).hostname):
     raise ImproperlyConfigured('Production SITE_URL must use https.')
+# Canonical production address. Keep cookies host-only: link.* is delegated to
+# an external service, so sharing the session cookie across subdomains is unsafe.
+CANONICAL_HOST = ''
+CANONICAL_REDIRECT_HOSTS = ()
+if not DEBUG and urlsplit(SITE_URL).hostname in {'marishkinirecepti.ru', 'www.marishkinirecepti.ru'}:
+    SITE_URL = 'https://www.marishkinirecepti.ru'
+    CANONICAL_HOST = 'www.marishkinirecepti.ru'
+    CANONICAL_REDIRECT_HOSTS = ('marishkinirecepti.ru',)
+    for host in (*CANONICAL_REDIRECT_HOSTS, CANONICAL_HOST):
+        if host not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(host)
+        origin = 'https://' + host
+        if origin not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(origin)
 CONTACT_EMAIL = env('CONTACT_EMAIL', default='marishkinirecepti@mail.ru')
 if CONTACT_EMAIL.strip().lower() in {'marina.novikova-1976@mail.ru', 'marishkinirecepri@mail.ru'}:
     CONTACT_EMAIL = 'marishkinirecepti@mail.ru'

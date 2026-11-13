@@ -29,7 +29,7 @@ docker compose exec web python manage.py check
 заказы прежнего провайдера не конвертируются в оплаченные; оформите новый через главную.
 
 В кабинете **тестового магазина** ЮKassa укажите HTTP-уведомления:
-`https://marishkinirecepti.ru/payments/yookassa/webhook/`.
+`https://www.marishkinirecepti.ru/payments/yookassa/webhook/`.
 События: `payment.succeeded`, `payment.canceled`, `refund.succeeded`.
 Возврат на сайт передаётся в API автоматически; отдельные SuccessURL/FailURL не нужны.
 Даже без webhook при возврате сайт проверяет статус напрямую через API.
