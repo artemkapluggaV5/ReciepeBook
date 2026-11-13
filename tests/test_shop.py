@@ -283,7 +283,7 @@ class ShopTests(TestCase):
         Order.objects.update(status='paid')
         response = self.client.get('/')
         self.assertEqual(self.client.session['checkout_key'], data['request_key'])
-        self.assertContains(response, 'Перейти к скачиванию')
+        self.assertContains(response, '>Скачать сборник ')
         self.assertNotContains(response, 'id="purchase-form"')
 
 

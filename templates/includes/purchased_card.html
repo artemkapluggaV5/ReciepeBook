@@ -1,8 +1,8 @@
 {% load icons %}
 <div class="purchase-confirmed">
   <span class="purchase-confirmed-badge">Оплата подтверждена</span>
-  <h3>Ваш сборник уже доступен</h3>
-  <p>Повторно оплачивать не нужно. На странице скачивания вас ждёт основной сборник{% if product.bonus_pdf_name %} и подарок{% endif %}.</p>
-  <a class="button purchase-button" href="{% url 'order-status' purchased_order.pk %}">Перейти к скачиванию {% icon 'arrow' %}</a>
-  <p class="small">Открывайте страницу в том же браузере, где оформляли покупку.</p>
+  <h3>Можно скачивать!</h3>
+  <p>Ваш основной сборник{% if product.bonus_pdf_name %} и подарок уже ждут{% else %} уже ждёт{% endif %} вас на странице скачивания.</p>
+  <a class="button purchase-button owned-download" href="{% url 'order-status' purchased_order.pk %}">Скачать сборник {% icon 'arrow' %}</a>
+  <p class="small">Покупка сохранена в этом браузере. Повторная оплата и ввод почты не нужны.</p>
 </div>

@@ -148,7 +148,7 @@ class CanonicalHostTests(TestCase):
         response = www.get(finish_url, HTTP_HOST=self.www, secure=True)
         self.assertEqual(response['Location'], 'https://' + self.www + '/')
         response = www.get('/', HTTP_HOST=self.www, secure=True)
-        self.assertContains(response, 'Перейти к скачиванию', count=3)
+        self.assertContains(response, '>Скачать сборник ', count=3)
         self.assertNotContains(response, 'id="purchase-form"')
 
     def test_old_paid_checkout_form_starts_ownership_transfer_before_new_payment(self):
