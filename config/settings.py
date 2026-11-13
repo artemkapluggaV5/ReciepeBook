@@ -78,9 +78,9 @@ if not DEBUG and urlsplit(SITE_URL).hostname in {'marishkinirecepti.ru', 'www.ma
         origin = 'https://' + host
         if origin not in CSRF_TRUSTED_ORIGINS:
             CSRF_TRUSTED_ORIGINS.append(origin)
-CONTACT_EMAIL = env('CONTACT_EMAIL', default='marishkinirecepti@mail.ru')
-if CONTACT_EMAIL.strip().lower() in {'marina.novikova-1976@mail.ru', 'marishkinirecepri@mail.ru'}:
-    CONTACT_EMAIL = 'marishkinirecepti@mail.ru'
+CONTACT_EMAIL = env('CONTACT_EMAIL', default='valeron684@mail.ru')
+if CONTACT_EMAIL.strip().lower() in {'marina.novikova-1976@mail.ru', 'marishkinirecepri@mail.ru', 'marishkinirecepti@mail.ru'}:
+    CONTACT_EMAIL = 'valeron684@mail.ru'
 TELEGRAM_USERNAME = env('TELEGRAM_USERNAME', default='marisha_876').strip().lstrip('@')
 TELEGRAM_SUPPORT_USERNAME = env('TELEGRAM_SUPPORT_USERNAME', default='novikov_valerii_s').strip().lstrip('@')
 for username in (TELEGRAM_USERNAME, TELEGRAM_SUPPORT_USERNAME):
