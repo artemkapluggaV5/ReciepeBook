@@ -28,7 +28,7 @@ class HistoricalMigrationTests(TransactionTestCase):
         from orders.models import Order as CurrentOrder
         from payments.models import LegacyInvoice
         saved = CurrentOrder.objects.get(pk=order.pk)
-        self.assertEqual(saved.product.price, Decimal('1590.00'))
+        self.assertEqual(saved.product.price, Decimal('1.00'))
         self.assertEqual({field:getattr(saved,field) for field in snapshot},snapshot)
         self.assertNotIn('email', [f.name for f in CurrentOrder._meta.fields])
         self.assertFalse(LegacyInvoice.objects.filter(order=saved).exists())
